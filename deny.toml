@@ -1,0 +1,54 @@
+# cargo deny configuration
+# Bans unwanted dependencies and enforces license policy
+
+[licenses]
+# Allow permissive licenses
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unlicense",
+    "Zlib",
+]
+
+# Deny copyleft licenses
+deny = [
+    "GPL-2.0",
+    "GPL-3.0",
+    "AGPL-1.0",
+    "AGPL-3.0",
+    "LGPL-2.0",
+    "LGPL-2.1",
+    "LGPL-3.0",
+]
+
+[bans]
+# Ban specific crates if needed
+# For example, if standardizing on tokio locks, ban parking_lot:
+# deny = [
+#     { name = "parking_lot", reason = "Use tokio::sync::Mutex instead" },
+# ]
+
+# Allow multiple versions of same crate (useful during transitions)
+multiple-versions = "allow"
+
+[advisories]
+# Check for security advisories
+vulnerability = "deny"
+unmaintained = "warn"
+unsound = "deny"
+yanked = "deny"
+
+[advisories.db-path]
+path = "~/.cargo/advisory-db"
+url = "https://github.com/rustsec/advisory-db"
+
+[advisories.db-git-commit]
+# Leave empty to use latest
+
+[advisories.ignore]
+# Ignore specific advisories if needed
+# id = ["RUSTSEC-YYYY-XXXX"]
+

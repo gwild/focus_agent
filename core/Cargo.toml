@@ -1,0 +1,10 @@
+[package]
+name = "core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+# Core crate: NO tokio, NO std::sync, NO async, NO I/O
+# Pure state transitions only

@@ -1,0 +1,16 @@
+# CODEOWNERS: Protect architectural enforcement mechanisms
+# Changes to these paths require explicit approval
+
+# Policy enforcement agent
+/xtask/ @gregorywildes
+
+# Architecture Decision Records
+/docs/adr/ @gregorywildes
+
+# Concurrency choke points
+/runtime/scheduler.rs @gregorywildes
+
+# Dependency and workspace configuration
+/Cargo.toml @gregorywildes
+/deny.toml @gregorywildes
+
