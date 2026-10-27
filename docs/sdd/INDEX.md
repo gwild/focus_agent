@@ -14,8 +14,8 @@ Do not mark a row DONE until the enforcer exists.
 | 1 | The PostgreSQL DB is the sole source of truth. | — | deferred — owner pipeline; tracking [focus_agent#1](https://github.com/gwild/focus_agent/issues/1); reason=out-of-slice for [PR #2](https://github.com/gwild/focus_agent/pull/2) | not in #22/#32/#33 slice |
 | 2 | `fuckyou.fuckyou` = bootstrap structure ONLY. | — | deferred — owner pipeline; tracking [focus_agent#1](https://github.com/gwild/focus_agent/issues/1); reason=out-of-slice for [PR #2](https://github.com/gwild/focus_agent/pull/2) | not in #22/#32/#33 slice |
 | 3 | NO seed. | — | deferred — owner pipeline; tracking [focus_agent#1](https://github.com/gwild/focus_agent/issues/1); reason=out-of-slice for [PR #2](https://github.com/gwild/focus_agent/pull/2) | not in #22/#32/#33 slice |
-| 4 | Local per-agent DB-transport broker (LDB) — the ONLY DB path (revised 2026-08… | [`docs/sdd/004-broker-only-db-path.sdd`](004-broker-only-db-path.sdd) | **drafted** (Ivy security) | broker typed-ops + connector audit gates |
-| 5 | Each agent's `.env` holds ONLY its DB pass | [`docs/sdd/005-030-env-pg-pass-only.sdd`](005-030-env-pg-pass-only.sdd) | **drafted** (Ivy security; merges #30) | `.env` PG-only + secrets via broker |
+| 4 | Local per-agent DB-transport broker (LDB) — the ONLY DB path (revised 2026-08-11). | [`docs/sdd/004-broker-only-db-path.sdd`](004-broker-only-db-path.sdd) | **drafted** (Ivy security) | broker typed ops + `check-db-connectors` / harness hooks |
+| 5 | Each agent's `.env` holds ONLY its DB pass | [`docs/sdd/005-env-holds-only-db-pass.sdd`](005-env-holds-only-db-pass.sdd) | **drafted** (Ivy security) | deploy-agent env writer + hygiene; clarified by #30 |
 | 6 | `deploy-agent.sh <agent>` is THE provisioner. | — | deferred — owner pipeline; tracking [focus_agent#1](https://github.com/gwild/focus_agent/issues/1); reason=out-of-slice for [PR #2](https://github.com/gwild/focus_agent/pull/2) | not in #22/#32/#33 slice |
 | 7 | Deploy is READ-ONLY against the DB. | — | deferred — owner pipeline; tracking [focus_agent#1](https://github.com/gwild/focus_agent/issues/1); reason=out-of-slice for [PR #2](https://github.com/gwild/focus_agent/pull/2) | not in #22/#32/#33 slice |
 | 8 | Agents are pure consumers. | — | deferred — owner pipeline; tracking [focus_agent#1](https://github.com/gwild/focus_agent/issues/1); reason=out-of-slice for [PR #2](https://github.com/gwild/focus_agent/pull/2) | not in #22/#32/#33 slice |
@@ -38,9 +38,9 @@ Do not mark a row DONE until the enforcer exists.
 | 25 | Naming: `fleet_config` is SOT — never "override" (Gregory, 2026-08-27). | — | deferred — owner pipeline; tracking [focus_agent#1](https://github.com/gwild/focus_agent/issues/1); reason=out-of-slice for [PR #2](https://github.com/gwild/focus_agent/pull/2) | not in #22/#32/#33 slice |
 | 26 | Complete fuckyou.fuckyou purge — bootstrap only (Gregory, 2026-08-27; epic #3… | — | deferred — owner pipeline; tracking [focus_agent#1](https://github.com/gwild/focus_agent/issues/1); reason=out-of-slice for [PR #2](https://github.com/gwild/focus_agent/pull/2) | not in #22/#32/#33 slice |
 | 27 | Channel assignments are DB-only (Gregory, 2026-08-27). | — | deferred — owner pipeline; tracking [focus_agent#1](https://github.com/gwild/focus_agent/issues/1); reason=out-of-slice for [PR #2](https://github.com/gwild/focus_agent/pull/2) | not in #22/#32/#33 slice |
-| 28 | Secrets never in fuckyou.fuckyou (Gregory, 2026-08-27). | [`docs/sdd/028-no-secrets-in-yaml.sdd`](028-no-secrets-in-yaml.sdd) | **drafted** (Ivy security) | check-specs-literal-bans / bootstrap gates |
-| 29 | No agent chat tokens (Gregory, 2026-08-27). | [`docs/sdd/029-no-agent-chat-tokens.sdd`](029-no-agent-chat-tokens.sdd) | **drafted** (Ivy security) | broker chat ops; no CHAT_TOKEN |
-| 30 | Agent `.env` is PG pass only (Gregory, 2026-08-27; clarifies #5). | [`docs/sdd/005-030-env-pg-pass-only.sdd`](005-030-env-pg-pass-only.sdd) | **drafted** (Ivy security; merges #5) | same as #5 |
+| 28 | Secrets never in fuckyou.fuckyou (Gregory, 2026-08-27). | [`docs/sdd/028-no-secrets-in-yaml.sdd`](028-no-secrets-in-yaml.sdd) | **drafted** (Ivy security) | bootstrap value ban + content-yaml gates |
+| 29 | No agent chat tokens (Gregory, 2026-08-27). | [`docs/sdd/029-no-agent-chat-tokens.sdd`](029-no-agent-chat-tokens.sdd) | **drafted** (Ivy security) | `check-chat-token-architecture.py` |
+| 30 | Agent `.env` is PG pass only (Gregory, 2026-08-27; clarifies #5). | [`docs/sdd/030-env-pg-user-password-only.sdd`](030-env-pg-user-password-only.sdd) | **drafted** (Ivy security) | exact `PG_USER`+`PG_PASSWORD` allowlist |
 | 31 | Shared OAuth across live seats is a KNOWN REGRESSION TRAP — single refresher … | — | deferred — owner pipeline; tracking [focus_agent#1](https://github.com/gwild/focus_agent/issues/1); reason=out-of-slice for [PR #2](https://github.com/gwild/focus_agent/pull/2) | not in #22/#32/#33 slice |
 | 32 | NO POLLERS — event-driven only; and NEVER revive a mechanism under active rep… | [`docs/sdd/032-no-pollers-event-driven.sdd`](032-no-pollers-event-driven.sdd) | **RULE** (SDD + fail-closed gate) | focus_agent RULE via Milton consumer: check-no-pollers + mkpr + specs-rules-gates (fail-closed). |
 | 33 | HAND-ROLLING IS FORBIDDEN — use the canonical skill / hook / script, ALWAYS (… | [`docs/sdd/033-canonical-skill-hook-script.sdd`](033-canonical-skill-hook-script.sdd) | SDD drafted; enforcer deferred | SDD drafted; focus_agent enforcer DEFERRED (review≠rule). Milton reviewer reject until CI/xtask gate. |
@@ -56,5 +56,5 @@ Do not mark a row DONE until the enforcer exists.
 - Mike — draft #22/#32/#33 + INDEX
 - Rebecca — rule-language / what counts as a rule
 - Elliot — integrator; fold Ivy drafts onto this branch
-- Ivy — #4/#5/#28–30 (incoming)
+- Ivy — #4 / #5 / #28 / #29 / #30 draft (security); Ivy security-reviews this slice on the PR
 
