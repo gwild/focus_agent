@@ -1,0 +1,104 @@
+SDD-TEXT 0.1
+
+# focus_agent policy SDD: Bootstrap is last resort, read once by one loader; no new content-yaml
+# Source (verbatim severity preserved): milton-specs.md #35, #36, #37
+# Owner of this text: gwild/focus_agent. Milton (gwild/milton) is a CONSUMER only;
+#   Milton paths below name the consumer gate that enforces this contract today.
+# Intent fields use fail-loud / reject / stop semantics (never degrade, never continue silently).
+# Ladder L1: this file.
+# Ladder L2 (Milton consumer today): Milton consumer `.claude/hooks/block-bootstrap-content-read.py` (#35), `scripts/check-bootstrap-config-loader-boundary.py` (#36), `scripts/check-no-new-content-yaml.py` via `.githooks/pre-commit` (#37). Fail closed, zero exceptions.
+# Ladder L4: long-lived processes never re-read bootstrap after launch.
+# Link: docs/sdd/035-036-037-bootstrap-last-one-loader-no-content-yaml.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED (owner Elliot, focus_agent#1).
+# The Milton gates named under Ladder L2 are consumer gates. Review is not a focus_agent RULE until a
+# fail-closed CI/xtask gate exists in the focus_agent ladder. The contract itself is not deferred.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="An agent investigates a failure, a process needs bootstrap structure, or a change adds a yaml file."
+  actor=Agent / Process / Author
+  intent="Broker and DB first; bootstrap once at launch; subsystem data in DB"
+  success_criteria="Investigation order and single-loader rule hold; no new content-yaml"
+  PRECEDES J-002 "Failure: Yaml-first investigation"
+END
+
+Step J-002 "Failure: Yaml-first investigation"
+  description="[#35] Required order: (1) broker `whoami`, (2) live DB state, (3) runtime evidence, (4) bootstrap LAST RESORT only for pre-broker paths or a proven launch-recipe mismatch. Reading bootstrap first is a REGRESSION."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Hook blocks bootstrap reads before the broker and DB path"
+  PRECEDES J-003 "Failure: Second loader or re-read"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Failure: Second loader or re-read"
+  description="[#36] ONLY the canonical loader may open, read, or parse the bootstrap file, ONCE per process at launch. Re-reads, mtime polls, reload, ad-hoc parsing, and per-request reads are FORBIDDEN."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Gate rejects any other file naming the bootstrap file"
+  PRECEDES J-004 "Failure: New content-yaml"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-004 "Failure: New content-yaml"
+  description="[#37] NO new content-yaml: subsystem data lives in the DB via broker typed ops. Static or projected yaml is NOT an exemption. Any new yaml outside the narrow allowlist is blocked; allowlist additions require operator approval on that PR."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Pre-commit gate refuses the new yaml file"
+  PRECEDES J-005 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-005 "Recovery"
+  description="Follow the investigation order; pass the launch snapshot; store subsystem data in DB tables."
+  actor=Author
+  intent="Bootstrap stays structure-only and read once"
+  success_criteria="Hooks and gates green"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=focus_agent
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Milton consumer gates enforce today; Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Bootstrap read hook"
+  DEPENDS_ON SA-002 "Loader boundary gate"
+  DEPENDS_ON SA-003 "Content-yaml gate"
+END
+
+Process PR-002 "Recovery Action"
+  owner=focus_agent
+  description="Correct the root cause in the single source of truth; the failure stays visible until the correction lands."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Bootstrap read hook"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Bootstrap read hook"
+  owner=focus_agent
+  description="Bootstrap read hook"
+  system_name=milton:.claude/hooks/block-bootstrap-content-read.py
+  action="Block bootstrap reads before broker and DB"
+  failure_modes="Prefer-yaml reasoning is rejected."
+END
+
+SystemAction SA-002 "Loader boundary gate"
+  owner=focus_agent
+  description="Loader boundary gate"
+  system_name=milton:scripts/check-bootstrap-config-loader-boundary.py
+  action="Only the canonical loader names the bootstrap file"
+  failure_modes="Duplicate loaders are deleted."
+END
+
+SystemAction SA-003 "Content-yaml gate"
+  owner=focus_agent
+  description="Content-yaml gate"
+  system_name=milton:scripts/check-no-new-content-yaml.py
+  action="Refuse new yaml outside the allowlist"
+  failure_modes="Allowlist change without operator approval is a violation."
+END

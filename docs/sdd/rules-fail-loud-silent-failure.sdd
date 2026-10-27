@@ -1,0 +1,194 @@
+SDD-TEXT 0.1
+
+# focus_agent policy SDD: No fallbacks; errors always visible; silent-failure boundary (all tiers); no implicit fallbacks; no hardcoded values; fail fast
+# Source (verbatim severity preserved): RULES.md NO FALLBACKS - EVER; ERRORS AND FAILURES ARE ALWAYS VISIBLE; SILENT-FAILURE BOUNDARY (Tier 1, Tier 2, Tier 3, Tier selection, No escape clause, Required substitute patterns, Enforcement); NO HARDCODED VALUES incl. NO IMPLICIT FALLBACKS; FAIL FAST
+# Owner of this text: gwild/focus_agent. Milton (gwild/milton) is a CONSUMER only;
+#   Milton paths below name the consumer gate that enforces this contract today.
+# Intent fields use fail-loud / reject / stop semantics (never degrade, never continue silently).
+# Ladder L1: this file. Absolute contract: NOT deferrable.
+# Ladder L2 (Milton consumer today): Milton consumer gates `scripts/check-no-silent-fallbacks.py`, `scripts/check-js-fallbacks.py`, `scripts/check-subprocess-run-rc.py`, `.githooks/pre-commit` silent-fail scan, `scripts/check-hardcoded-config.py`, `scripts/audit/check-hardcodes.py`, replayed in the `specs-rules-gates` CI. Zero exceptions.
+# Ladder L4: every one-shot fatal path posts to #errors before exiting non-zero.
+# Link: docs/sdd/rules-fail-loud-silent-failure.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED (owner Elliot, focus_agent#1).
+# The Milton gates named under Ladder L2 are consumer gates. Review is not a focus_agent RULE until a
+# fail-closed CI/xtask gate exists in the focus_agent ladder. The contract itself is not deferred.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="Any fallible step in operational code: a command, call, probe, config read, or inbound request."
+  actor=Code path
+  intent="Fail loud at the invariant's tier; never substitute a plan B"
+  success_criteria="Failure is visible exactly where it happens, in full"
+  PRECEDES J-002 "Failure: Fallback"
+END
+
+Step J-002 "Failure: Fallback"
+  description="[RULES.md NO FALLBACKS] If something fails, it fails. Trying a different path, catching and trying plan B, degrading, or a default value nobody sees (including a harmless one) is FORBIDDEN. Fail loudly, fail fast, log the exact error, stop."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Gates reject literal-default, swallowed-exception, and literal-returning except shapes"
+  PRECEDES J-003 "Failure: Hidden error"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Failure: Hidden error"
+  description="[RULES.md ERRORS VISIBLE] Failures are never hidden from humans, logs, or monitoring. Stderr discards, forced-success idioms, errexit-disable windows without explicit rc checks, bare or typed except-pass, and discarded return codes are FORBIDDEN. Any non-zero exit in a one-shot script MUST be preceded by a fatal post to #errors with agent, host, and failing check."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Gates reject each suppression shape; #errors carries every fatal"
+  PRECEDES J-004 "Failure: Tier 1 daemon swallow"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-004 "Failure: Tier 1 daemon swallow"
+  description="[RULES.md SILENT-FAILURE Tier 1] Long-running daemon, per-cycle invariant: capture stdout+stderr, write to stderr, post the error kind to chat, then continue the loop. Swallowing the inner failure is FORBIDDEN."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Every failed cycle is posted and logged"
+  PRECEDES J-005 "Failure: Tier 2 one-shot masks failure"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-005 "Failure: Tier 2 one-shot masks failure"
+  description="[RULES.md SILENT-FAILURE Tier 2] One-shot script, per-invocation invariant: log the error and EXIT NON-ZERO. Masking a failure in the launcher path is FORBIDDEN."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Non-zero exit propagates to the operator-visible signal"
+  PRECEDES J-006 "Failure: Tier 3 coerced input"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-006 "Failure: Tier 3 coerced input"
+  description="[RULES.md SILENT-FAILURE Tier 3] Request handler, per-request invariant: REJECT this one request synchronously, accept the next; no retry, no process exit. Silently coercing invalid input into a best-guess valid input is FORBIDDEN. Any bypass MUST be an explicit named `bypass_*` flag or override mechanism with its own justification, authorized by the operator (Gregory); its use MUST itself be user-visible. An annotation is never a bypass. Agents MUST NOT invent new bypass flags."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Invalid request is rejected visibly"
+  PRECEDES J-007 "Failure: Wrong tier"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-007 "Failure: Wrong tier"
+  description="[RULES.md SILENT-FAILURE Tier selection] The tier classifies the INVARIANT, not the process; picking the wrong tier is itself a violation. Per-request maps to Tier 3, cross-cycle to Tier 1, per-invocation to Tier 2."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Reviewer rejects tier mismatches"
+  PRECEDES J-008 "Failure: Annotation escape"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-008 "Failure: Annotation escape"
+  description="[RULES.md SILENT-FAILURE No escape clause] There is NO annotation-based escape. A justification comment does not authorize a swallowed signal; zero tolerance regardless of comment quality."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Commented swallows are rejected exactly like uncommented ones"
+  PRECEDES J-009 "Failure: Forced success"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-009 "Failure: Forced success"
+  description="[RULES.md SILENT-FAILURE Required substitute patterns] The success condition MUST natively include the no-op case via an idempotent flag, an explicit precondition check, or a state probe. Python MUST handle only the specific expected exception; an unnamed exception is a fail-loud condition. The only structural permission is an optional-import probe that assigns a visible sentinel."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Rewrites use one of the three substitute forms"
+  PRECEDES J-010 "Failure: Pre-existing treated as pass"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-010 "Failure: Pre-existing treated as pass"
+  description="[RULES.md SILENT-FAILURE Enforcement] Pre-existing is NOT a pass: a commit touching a file with legacy patterns MUST sweep that file in the same commit (fix-on-discovery). Exclusions are limited to the rule text, the hooks, docs, and the one dedicated fixture."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Touched files leave clean"
+  PRECEDES J-011 "Failure: Implicit fallback or hardcode"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-011 "Failure: Implicit fallback or hardcode"
+  description="[RULES.md NO HARDCODED VALUES / NO IMPLICIT FALLBACKS] If a value is keyed in config, code MUST read the key; duplicating the literal is a config bypass. Empty-or-default, get-with-default for a required key, and if-empty-assign shapes are FORBIDDEN; a required key missing MUST raise. Carve-outs are only the three listed in source (registry-key singletons, display echo of a read value, test fixtures)."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Gates reject the shapes; missing required keys raise"
+  PRECEDES J-012 "Failure: Limping"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-012 "Failure: Limping"
+  description="[RULES.md FAIL FAST] Crashing beats limping. Silent degradation is FORBIDDEN; the silent-failure enforcement above is this rule's floor."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Process crashes loudly instead of degrading"
+  PRECEDES J-013 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-013 "Recovery"
+  description="Rewrite with an explicit guard or idempotent form, raise on missing required values, and post fatals to #errors."
+  actor=Author
+  intent="Keep the substrate honest at the failing granularity"
+  success_criteria="Gates green; no swallowed signal remains in touched files"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=focus_agent
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Milton consumer gates enforce today; Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Silent-fallback gate"
+  DEPENDS_ON SA-002 "JS fallback gate"
+  DEPENDS_ON SA-003 "Subprocess rc gate"
+  DEPENDS_ON SA-004 "Pre-commit silent-fail scan"
+  DEPENDS_ON SA-005 "Hardcode gates"
+END
+
+Process PR-002 "Recovery Action"
+  owner=focus_agent
+  description="Correct the root cause in the single source of truth; the failure stays visible until the correction lands."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Silent-fallback gate"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Silent-fallback gate"
+  owner=focus_agent
+  description="Silent-fallback gate"
+  system_name=milton:scripts/check-no-silent-fallbacks.py
+  action="Reject literal defaults and literal-returning except blocks"
+  failure_modes="Count baseline is a non-expanding debt ratchet only (count MUST NOT rise) — never a pass. Touched-file fix-on-discovery sweep is enforced by SA-004 (pre-commit full-content scan), not by the baseline."
+END
+
+SystemAction SA-002 "JS fallback gate"
+  owner=focus_agent
+  description="JS fallback gate"
+  system_name=milton:scripts/check-js-fallbacks.py
+  action="Reject JS fallback shapes"
+  failure_modes="Zero exceptions."
+END
+
+SystemAction SA-003 "Subprocess rc gate"
+  owner=focus_agent
+  description="Subprocess rc gate"
+  system_name=milton:scripts/check-subprocess-run-rc.py
+  action="Reject unchecked subprocess exit codes"
+  failure_modes="Bare statement-form calls are rejected."
+END
+
+SystemAction SA-004 "Pre-commit silent-fail scan"
+  owner=focus_agent
+  description="Pre-commit silent-fail scan"
+  system_name=milton:.githooks/pre-commit
+  action="Full-content scan of staged files for the forbidden pattern family"
+  failure_modes="A bypassed hook is caught by the CI replay."
+END
+
+SystemAction SA-005 "Hardcode gates"
+  owner=focus_agent
+  description="Hardcode gates"
+  system_name=milton:scripts/check-hardcoded-config.py + scripts/audit/check-hardcodes.py
+  action="Reject config-owned literals in code"
+  failure_modes="New hardcode classes extend the mechanical layer, never a prose reminder."
+END

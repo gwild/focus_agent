@@ -1,0 +1,68 @@
+SDD-TEXT 0.1
+
+# focus_agent policy SDD: Commands posted for the operator to paste are short-line form
+# Source (verbatim severity preserved): milton-specs.md #23
+# Owner of this text: gwild/focus_agent. Milton (gwild/milton) is a CONSUMER only;
+#   Milton paths below name the consumer gate that enforces this contract today.
+# Intent fields use fail-loud / reject / stop semantics (never degrade, never continue silently).
+# Ladder L1: this file.
+# Ladder L2 (Milton consumer today): no mechanical gate in source: L2 DEFERRED to focus_agent#1 (owner Elliot).
+# Ladder L4: none required.
+# Link: docs/sdd/023-paste-safe-commands.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED (owner Elliot, focus_agent#1).
+# The Milton gates named under Ladder L2 are consumer gates. Review is not a focus_agent RULE until a
+# fail-closed CI/xtask gate exists in the focus_agent ladder. The contract itself is not deferred.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="An agent cannot run a command itself and posts shell for the operator to paste."
+  actor=Agent
+  intent="Post only short lines that survive wrap"
+  success_criteria="Every line survives terminal wrap"
+  PRECEDES J-002 "Failure: Long one-liner or nested heredoc"
+END
+
+Step J-002 "Failure: Long one-liner or nested heredoc"
+  description="[#23] Long one-liners and nested heredocs are BANNED. Required: short lines one at a time (or a block of short lines), a tiny on-disk script instead of a giant inline string, and a SEPARATE verify that cannot lie (`grep ...; echo exit:$?`); verify forms that report clean on failure are FORBIDDEN."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Reviewer or operator rejects the paste block; agent reposts short-line form"
+  PRECEDES J-003 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Recovery"
+  description="Repost as short lines with a separate honest verify."
+  actor=Agent
+  intent="Paste-safe operator commands"
+  success_criteria="Command runs as pasted; verify reports the real exit code"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=focus_agent
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Paste review"
+END
+
+Process PR-002 "Recovery Action"
+  owner=focus_agent
+  description="Correct the root cause in the single source of truth; the failure stays visible until the correction lands."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Paste review"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Paste review"
+  owner=focus_agent
+  description="Paste review"
+  system_name=review + focus_agent#1
+  action="Reject wrap-breaking paste blocks"
+  failure_modes="Deferred wiring only."
+END

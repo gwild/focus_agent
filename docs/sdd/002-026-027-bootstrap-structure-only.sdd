@@ -1,0 +1,104 @@
+SDD-TEXT 0.1
+
+# focus_agent policy SDD: Bootstrap file holds structure only; channel assignments DB-only; deprecated fields never return
+# Source (verbatim severity preserved): milton-specs.md #2, #26, #27; RULES.md DEPRECATED CONFIG FIELDS
+# Owner of this text: gwild/focus_agent. Milton (gwild/milton) is a CONSUMER only;
+#   Milton paths below name the consumer gate that enforces this contract today.
+# Intent fields use fail-loud / reject / stop semantics (never degrade, never continue silently).
+# Ladder L1: this file.
+# Ladder L2 (Milton consumer today): Milton consumer gates `scripts/check-config-static-only.py` and `scripts/check-bootstrap-config-loader-boundary.py`. Fail closed, zero exceptions.
+# Ladder L4: loaders refuse a bootstrap file that carries DB-owned leaves.
+# Link: docs/sdd/002-026-027-bootstrap-structure-only.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED (owner Elliot, focus_agent#1).
+# The Milton gates named under Ladder L2 are consumer gates. Review is not a focus_agent RULE until a
+# fail-closed CI/xtask gate exists in the focus_agent ladder. The contract itself is not deferred.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="A change adds or edits a value in the bootstrap file."
+  actor=Author
+  intent="Keep only pre-broker structure in bootstrap"
+  success_criteria="Every added value is required before the broker can open Postgres or bind a host-local daemon"
+  PRECEDES J-002 "Failure: Live field in bootstrap"
+END
+
+Step J-002 "Failure: Live field in bootstrap"
+  description="[#2] Bootstrap = structure ONLY. No secret values; no live-mutable fields (provider, model, runtime, hostname, role, enabled, twin.enabled, channels, voice, roster or profile, channel assignments, providers or model catalogs, dispatcher toggles, operator timers). Yaml and DB MUST NOT overlap: a value lives in exactly ONE place."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Gate rejects DB-owned mutable leaves, a providers registry, and static token membership"
+  PRECEDES J-003 "Failure: Purge reversed"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Failure: Purge reversed"
+  description="[#26] Bootstrap holds ONLY what is required before the broker can open Postgres. Rule: if a value can be read after the broker connects, it is DB, not yaml. Provider ids, seat definitions, provider secret maps, and model lists are NOT bootstrap."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Only the allowlisted bootstrap classes remain in the file"
+  PRECEDES J-004 "Failure: Channel assignment in config"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-004 "Failure: Channel assignment in config"
+  description="[#27] Which channels an agent or human principal may use lives in `fleet_config` ONLY; never in bootstrap token blocks or static agent entries. Assignment is never config."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Gate rejects channel assignments in bootstrap"
+  PRECEDES J-005 "Failure: Deprecated field re-added"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-005 "Failure: Deprecated field re-added"
+  description="[RULES.md DEPRECATED CONFIG FIELDS] The removed agent fields and dead timer sections listed in RULES.md MUST NOT be re-added to the bootstrap file under any circumstance."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Gate fails on any listed name in bootstrap"
+  PRECEDES J-006 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-006 "Recovery"
+  description="Move the value to `fleet_config` or the owning DB table via broker typed op and delete it from bootstrap."
+  actor=Author
+  intent="Restore the single-place invariant"
+  success_criteria="Bootstrap carries structure only; gate green"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=focus_agent
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Milton consumer gates enforce today; Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Static-only config gate"
+  DEPENDS_ON SA-002 "Loader boundary gate"
+END
+
+Process PR-002 "Recovery Action"
+  owner=focus_agent
+  description="Correct the root cause in the single source of truth; the failure stays visible until the correction lands."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Static-only config gate"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Static-only config gate"
+  owner=focus_agent
+  description="Static-only config gate"
+  system_name=milton:scripts/check-config-static-only.py
+  action="Reject DB-owned leaves, channel assignments, and deprecated fields in bootstrap"
+  failure_modes="Allowlist growth without operator approval is a violation."
+END
+
+SystemAction SA-002 "Loader boundary gate"
+  owner=focus_agent
+  description="Loader boundary gate"
+  system_name=milton:scripts/check-bootstrap-config-loader-boundary.py
+  action="Only the canonical loader may name the bootstrap file"
+  failure_modes="A second loader is rejected (#36)."
+END

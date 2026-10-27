@@ -1,0 +1,86 @@
+SDD-TEXT 0.1
+
+# focus_agent policy SDD: Agent-host ownership is local broker presence, never a hostname field
+# Source (verbatim severity preserved): milton-specs.md #16
+# Owner of this text: gwild/focus_agent. Milton (gwild/milton) is a CONSUMER only;
+#   Milton paths below name the consumer gate that enforces this contract today.
+# Intent fields use fail-loud / reject / stop semantics (never degrade, never continue silently).
+# Ladder L1: this file.
+# Ladder L2 (Milton consumer today): no dedicated mechanical gate named in source: L2 DEFERRED to focus_agent#1 (owner Elliot). The `_fatal` throttle corollary is shipped behaviour in the consumer.
+# Ladder L4: the watcher ownership gate answers from broker `whoami`; a non-owner exits cleanly instead of crash-looping.
+# Link: docs/sdd/016-ownership-by-broker-presence.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED (owner Elliot, focus_agent#1).
+# The Milton gates named under Ladder L2 are consumer gates. Review is not a focus_agent RULE until a
+# fail-closed CI/xtask gate exists in the focus_agent ladder. The contract itself is not deferred.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="A component decides whether this host owns or runs an agent."
+  actor=Watcher / Launcher
+  intent="Decide ownership from broker presence only"
+  success_criteria="Ownership is true iff the agent's local broker answers `whoami` on this host"
+  PRECEDES J-002 "Failure: Hostname gate"
+END
+
+Step J-002 "Failure: Hostname gate"
+  description="[#16] Agent and host are DECOUPLED. A hostname-based ownership or placement check is FORBIDDEN; `agents.<id>.hostname` is removed as an ownership coupling and every consumer migrates to broker presence."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Reviewer rejects any reintroduced hostname comparison"
+  PRECEDES J-003 "Failure: Error flood"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Failure: Error flood"
+  description="[#16 corollary] The fatal-to-#errors path MUST stay throttled (one post per window per distinct error, suppression surfaced in status) so a crash-loop can never flood #errors; throttling MUST NOT hide the first occurrence."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="First occurrence is always posted; repeats are counted and surfaced"
+  PRECEDES J-004 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-004 "Recovery"
+  description="Replace the hostname comparison with a broker `whoami` check bounded by the broker start budget."
+  actor=Author
+  intent="Single ownership signal"
+  success_criteria="No hostname ownership coupling remains"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=focus_agent
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Ownership review"
+  DEPENDS_ON SA-002 "Broker whoami"
+END
+
+Process PR-002 "Recovery Action"
+  owner=focus_agent
+  description="Correct the root cause in the single source of truth; the failure stays visible until the correction lands."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Ownership review"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Ownership review"
+  owner=focus_agent
+  description="Ownership review"
+  system_name=review + focus_agent#1
+  action="Reviewer MUST reject hostname ownership checks"
+  failure_modes="Deferred wiring only."
+END
+
+SystemAction SA-002 "Broker whoami"
+  owner=focus_agent
+  description="Broker whoami"
+  system_name=local-db-broker
+  action="Answer `whoami` for the co-located agent"
+  failure_modes="Broker absent means not owned; never fall through to a hostname read."
+END

@@ -1,0 +1,86 @@
+SDD-TEXT 0.1
+
+# focus_agent policy SDD: The contract is delivered and enforced before model work on every runtime
+# Source (verbatim severity preserved): milton-specs.md #17
+# Owner of this text: gwild/focus_agent. Milton (gwild/milton) is a CONSUMER only;
+#   Milton paths below name the consumer gate that enforces this contract today.
+# Intent fields use fail-loud / reject / stop semantics (never degrade, never continue silently).
+# Ladder L1: this file.
+# Ladder L2 (Milton consumer today): Milton consumer `.claude/hooks/read-milton-specs.py`, wired per runtime (claude-code, codex, cursor preToolUse). Fail closed: missing, empty, or unreadable spec, bad payload, or unwritable state blocks (exit 2).
+# Ladder L4: harness adapters deny the tool call until the contract is delivered.
+# Link: docs/sdd/017-contract-before-model-work.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED (owner Elliot, focus_agent#1).
+# The Milton gates named under Ladder L2 are consumer gates. Review is not a focus_agent RULE until a
+# fail-closed CI/xtask gate exists in the focus_agent ladder. The contract itself is not deferred.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="A harness session starts or the contract hash changes."
+  actor=Harness
+  intent="Deliver the full contract before any tool runs"
+  success_criteria="Exit 2 with the full contract on hash change; delivery ledger written only after real delivery"
+  PRECEDES J-002 "Failure: Delivery skipped or faked"
+END
+
+Step J-002 "Failure: Delivery skipped or faked"
+  description="[#17] The contract is NOT advisory. Every harness runs ONE canonical hook; a delivery ledger written without showing the body is a false pass and is FORBIDDEN. A short pass-path pointer is not compliance."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Missing delivery blocks the tool call"
+  PRECEDES J-003 "Failure: Forked hook"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Failure: Forked hook"
+  description="[#17] The hook is a single source wired per runtime; forking its content or logic into per-harness copies is FORBIDDEN. Runtime wiring changes MUST update the contract text in the same change."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="One hook, thin adapters"
+  PRECEDES J-004 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-004 "Recovery"
+  description="Fix the canonical hook or its adapter in its own PR; never route around it."
+  actor=Author
+  intent="Restore fail-closed delivery"
+  success_criteria="Every runtime blocks until delivery"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=focus_agent
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Milton consumer hook enforces today; Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Contract delivery hook"
+  DEPENDS_ON SA-002 "Runtime adapters"
+END
+
+Process PR-002 "Recovery Action"
+  owner=focus_agent
+  description="Correct the root cause in the single source of truth; the failure stays visible until the correction lands."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Contract delivery hook"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Contract delivery hook"
+  owner=focus_agent
+  description="Contract delivery hook"
+  system_name=milton:.claude/hooks/read-milton-specs.py
+  action="Fail-closed pre-tool delivery on hash change"
+  failure_modes="Prompt-shaped payloads on Cursor MUST NOT write the delivery ledger."
+END
+
+SystemAction SA-002 "Runtime adapters"
+  owner=focus_agent
+  description="Runtime adapters"
+  system_name=milton:.cursor/hooks.json + .codex/hooks.json + .claude/settings.json
+  action="Map exit 2 to deny or block on each runtime"
+  failure_modes="A silent allow is a violation."
+END

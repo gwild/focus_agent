@@ -1,0 +1,38 @@
+# SDD-TEXT 0.1
+# Authoring template for focus_agent policy contracts.
+# Source: <milton-specs #N | RULES.md SECTION>  (focus_agent owns this text; Milton is a consumer)
+# Ladder: L1 <this file> | L2 <named executable gate or "DEFERRED: owner, issue URL"> | L4 <runtime refusal>
+# Failure-path intent: reject / stop / fail loud. Soft-landing intents that continue past a failure are forbidden.
+
+Step J-001 "Trigger"
+  intent="<the action that brings this contract into force>"
+END
+
+Step J-002 "Failure: <violated invariant>"
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue."
+END
+
+Step J-003 "Recovery"
+  intent="Fix the root cause at the source of truth, then re-run the gate; never bypass it."
+END
+
+Process PR-001 "Detection"
+  owner="focus_agent"
+  description="<the gate that detects the violation>"
+END
+
+Process PR-002 "Recovery Action"
+  owner="focus_agent"
+  description="<the loud stop or reject, and the operator-visible report>"
+END
+
+SystemAction SA-001 "<gate name>"
+  owner="focus_agent"
+  failure_modes="<each failure mode MUST fail loud>"
+END
+
+J-001 PRECEDES J-002
+J-002 PRECEDES J-003
+J-002 REALIZED_BY PR-001
+J-003 REALIZED_BY PR-002
+PR-001 DEPENDS_ON SA-001

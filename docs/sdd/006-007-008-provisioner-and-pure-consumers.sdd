@@ -1,0 +1,95 @@
+SDD-TEXT 0.1
+
+# focus_agent policy SDD: One provisioner, read-only against the DB; agents and services are pure consumers
+# Source (verbatim severity preserved): milton-specs.md #6, #7, #8
+# Owner of this text: gwild/focus_agent. Milton (gwild/milton) is a CONSUMER only;
+#   Milton paths below name the consumer gate that enforces this contract today.
+# Intent fields use fail-loud / reject / stop semantics (never degrade, never continue silently).
+# Ladder L1: this file.
+# Ladder L2 (Milton consumer today): #8 is enforced by the broker-only DB gates of #4 (`.claude/hooks/enforce-mcp-chat.py`, `scripts/audit/check-db-connectors.py`). #6 and #7 have no mechanical gate: L2 DEFERRED to focus_agent#1 (owner Elliot).
+# Ladder L4: services without a broker socket fail loud; they never open their own DB connection.
+# Link: docs/sdd/006-007-008-provisioner-and-pure-consumers.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED (owner Elliot, focus_agent#1).
+# The Milton gates named under Ladder L2 are consumer gates. Review is not a focus_agent RULE until a
+# fail-closed CI/xtask gate exists in the focus_agent ladder. The contract itself is not deferred.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="A seat is deployed or a per-agent service needs DB I/O."
+  actor=Provisioner / Service
+  intent="Provision through the one canonical provisioner and consume through the broker"
+  success_criteria="Deploy reads credentials by agent name; services hold no DB pass"
+  PRECEDES J-002 "Failure: Second provisioner"
+END
+
+Step J-002 "Failure: Second provisioner"
+  description="[#6] `deploy-agent.sh <agent>` is THE provisioner: it creates the per-agent repo copy, writes `.env` with that agent's DB credential looked up from the DB by agent name, and reads only static fields from bootstrap. A parallel provisioner is FORBIDDEN (#22/#33)."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Deploy flows go through the one provisioner"
+  PRECEDES J-003 "Failure: Deploy writes the DB"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Failure: Deploy writes the DB"
+  description="[#7] Deploy is READ-ONLY against the DB. It MUST NOT mint, seed, or write config; credentials already exist in the DB and are looked up by name."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="No DB write path in deploy; a missing credential fails loud as a provisioning gap"
+  PRECEDES J-004 "Failure: Service holds a DB pass"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-004 "Failure: Service holds a DB pass"
+  description="[#8] Agents and per-agent services are pure consumers. Services are generic and do ALL DB I/O through the agent's local broker socket, gated by filesystem permissions. A service holds NO DB pass of its own."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Broker-only gates reject any service DB connection"
+  PRECEDES J-005 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-005 "Recovery"
+  description="Route the flow through the canonical provisioner and the broker socket; delete the parallel or writing path."
+  actor=Author
+  intent="Single provisioning path, read-only deploy, broker-only consumers"
+  success_criteria="Reviewer and gates confirm no parallel path or service credential"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=focus_agent
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Broker-only DB gates"
+  DEPENDS_ON SA-002 "Provisioner review"
+END
+
+Process PR-002 "Recovery Action"
+  owner=focus_agent
+  description="Correct the root cause in the single source of truth; the failure stays visible until the correction lands."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Broker-only DB gates"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Broker-only DB gates"
+  owner=focus_agent
+  description="Broker-only DB gates"
+  system_name=milton:.claude/hooks/enforce-mcp-chat.py + scripts/audit/check-db-connectors.py
+  action="Block direct DB driver access from any service"
+  failure_modes="Exemptions for dashboards or provisioners are FORBIDDEN (#4)."
+END
+
+SystemAction SA-002 "Provisioner review"
+  owner=focus_agent
+  description="Provisioner review"
+  system_name=review + focus_agent#1
+  action="Reviewer MUST reject a second provisioner or any DB write from deploy"
+  failure_modes="No mechanical gate yet; deferred wiring only."
+END

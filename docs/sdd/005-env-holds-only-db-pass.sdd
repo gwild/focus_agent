@@ -1,0 +1,93 @@
+SDD-TEXT 0.1
+
+# Milton-spec #5: Each agent's .env holds ONLY its DB pass
+# Fields: hosts, agents, services, files, trigger, expected recovery, scenario flow
+# Source: gwild/milton milton-specs.md hard rule 5
+# Clarified by #30 (exactly PG_USER + PG_PASSWORD). Home: gwild/focus_agent.
+# Author: Ivy (Red Team / InfoSec) — draft 0.1.1, 2026-10-26
+# Link: docs/sdd/005-env-holds-only-db-pass.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED.
+# A hygiene gate is REQUIRED for RULE status; optional hygiene is not enough.
+# Ladder gap: SDD yes; focus_agent fail-closed env-allowlist gate — not yet (tracking focus_agent#1).
+
+# ── MUST / FORBIDDEN (normative) ─────────────────────────────────────────────
+# MUST: Agent .env holds ONLY the DB pass (exact keys under #30).
+# FORBIDDEN: App keys, agent chat-token env, provider secrets, PEMs, OAuth refresh material in .env
+#            or any local side store (Downloads, /etc/... , repo backups).
+# MUST: Every other secret lives in the DB secret store and is fetched JIT via broker typed ops.
+# FORBIDDEN: File / .env / yaml fallback when a secret is missing from DB — that is a provisioning gap.
+# MUST: Deprecated secret outside DB → (1) capture into DB, (2) DELETE forever from the old location.
+# MUST: .env mode is not world-readable (Milton seat target: 600).
+# MUST: Only the human operator (Gregory) path may set_secret / provision DB-resident secrets;
+#       deploy may write the PG keys into .env from DB lookup. Agents MUST NOT grow .env.
+# MUST: Reviewers REJECT extra keys; hygiene gate MUST fail closed (no warning-only).
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Seat needs a non-DB secret"
+  description="Runtime needs an App key, provider secret, PEM, or similar."
+  actor=AgentRuntime
+  intent="Obtain the secret without growing local secret surface"
+  success_criteria="Fetch via broker typed get_secret (or equivalent) into memory; never write to .env or a local side file"
+  PRECEDES J-002 "Provisioner writes .env"
+END
+
+Step J-002 "Provisioner writes agent .env"
+  description="Deploy/provision creates or refreshes the seat .env so the local broker can authenticate to Postgres."
+  actor=Provisioner
+  intent="Supply only the DB principal for this agent"
+  success_criteria=".env holds only the DB pass (see #30 for exact keys); mode not world-readable"
+  PRECEDES J-003 "Forbidden local secret appears"
+  REALIZED_BY PR-001 "Env writer contract"
+END
+
+Step J-003 "Forbidden local secret appears"
+  description="Non-DB secret found in .env or a local side file."
+  actor=Offender
+  intent="Convenience stash or legacy leftover"
+  success_criteria="Capture into DB secret store if still needed; DELETE forever from disk; gate fails closed on reintroduction"
+  PRECEDES J-004 "Invariant holds"
+  REALIZED_BY PR-002 "Env hygiene enforcement"
+END
+
+Step J-004 "Invariant holds"
+  description="Seats at rest keep .env as DB-pass only. A missing secret is a DB provisioning gap, never a file fallback."
+  actor=System
+  intent="Minimize local secret blast radius"
+  success_criteria="Hygiene check green when enforcer lands; docs never instruct adding other keys"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Env writer contract"
+  owner=Milton-consumer
+  description="Deploy/provision writes only the agent DB pass into .env from DB lookup."
+  visibility=public
+  DEPENDS_ON SA-001 "Agent .env file"
+END
+
+Process PR-002 "Env hygiene enforcement"
+  owner=Milton-consumer
+  description="Fail-closed allowlist check. focus_agent CI/xtask gate DEFERRED (focus_agent#1). Until then Milton consumer gate + reviewer REJECT are required — not optional."
+  visibility=public
+  DEPENDS_ON SA-002 "Secret fetch path"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Agent .env file"
+  owner=Milton-consumer
+  description="Per-seat .env consumed only by the local broker for Postgres auth."
+  system_name=agent-env
+  action="MUST allowlist DB-pass keys only (exact set under #30); MUST use restrictive file mode"
+  failure_modes="(1) Extra keys for the bridge — FORBIDDEN (CHANGES). (2) .env.bak* in repo — FORBIDDEN. (3) Docs teaching agent chat-token env in .env — MUST fix docs in same program of work."
+END
+
+SystemAction SA-002 "Secret fetch path"
+  owner=Milton-consumer
+  description="Broker typed ops for secret material (JIT into memory; no argv/log leakage)."
+  system_name=broker-get-secret
+  action="MUST read secrets from DB secret store at use time; FORBIDDEN to cache to disk as default"
+  failure_modes="(1) DB miss → MUST fail loud / provision; FORBIDDEN to fall back to file. (2) Printing secret values in chat/logs — FORBIDDEN. (3) Shared OAuth across seats → #31; FORBIDDEN to solve by stuffing into .env."
+END

@@ -1,0 +1,104 @@
+SDD-TEXT 0.1
+
+# focus_agent policy SDD: The database is the sole SOT; no seed; no config-DB merge; no override vocabulary
+# Source (verbatim severity preserved): milton-specs.md #1, #3, #15, #25
+# Owner of this text: gwild/focus_agent. Milton (gwild/milton) is a CONSUMER only;
+#   Milton paths below name the consumer gate that enforces this contract today.
+# Intent fields use fail-loud / reject / stop semantics (never degrade, never continue silently).
+# Ladder L1: this file.
+# Ladder L2 (Milton consumer today): Milton consumer gates `scripts/check-config-static-only.py` (#1, #3, #15, #25) and `scripts/check-specs-literal-bans.py` (#15). Fail closed, zero exceptions, no exemption marker.
+# Ladder L4: readers fail loud on a missing DB value; they never read a substitute from bootstrap.
+# Link: docs/sdd/001-003-015-025-db-sole-sot.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED (owner Elliot, focus_agent#1).
+# The Milton gates named under Ladder L2 are consumer gates. Review is not a focus_agent RULE until a
+# fail-closed CI/xtask gate exists in the focus_agent ladder. The contract itself is not deferred.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="A reader or writer needs live or mutable fleet or per-agent state."
+  actor=Consumer
+  intent="Read the value from exactly one source: the DB (`fleet_config` and dedicated tables) via the broker"
+  success_criteria="Value is read straight from the DB by path; bootstrap is never consulted for it"
+  PRECEDES J-002 "Failure: Second source of truth"
+END
+
+Step J-002 "Failure: Second source of truth"
+  description="[#1] The PostgreSQL DB is the SOLE source of truth. All live or mutable config lives in `fleet_config` and is read directly from the DB, never merged into the bootstrap file. There is no in-between. The deprecated table name is FORBIDDEN in every tracked file."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Gate rejects DB-owned mutable leaves in bootstrap and the deprecated table name anywhere"
+  PRECEDES J-003 "Failure: Seeding"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Failure: Seeding"
+  description="[#3] NO seed. No config-literal seeding, no seed-defaults mechanism, no seed file, no `seeded into the DB` doctrine. Nothing seeds the DB from config; an empty DB is a provisioning gap."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Gate rejects the removed seed path, its helpers, and the seeding phrasing"
+  PRECEDES J-004 "Failure: Merge machinery revived"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-004 "Failure: Merge machinery revived"
+  description="[#15] The config-DB merge pattern is DEAD with NO going back. Overlay flags, effective-config builders, override helpers, completeness gates added `to be safe` are FORBIDDEN. A live field missing from the DB is a DB-provisioning gap, never a reason to read the bootstrap file."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Gate blocks any added reference to the dead merge machinery"
+  PRECEDES J-005 "Failure: Override vocabulary"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-005 "Failure: Override vocabulary"
+  description="[#25] `fleet_config` is SOT. The words override, overrides, overlay, effective config, baseline+patch, and merge DB into config are FORBIDDEN in code, comments, errors, and docs as descriptions of DB-owned state; the DB is not secondary. Legacy names are delete targets."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Forbidden vocabulary is rejected; only the correct names ship"
+  PRECEDES J-006 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-006 "Recovery"
+  description="Provision the missing DB row through the broker typed op; delete the merge or seed path; rename to the SOT vocabulary."
+  actor=Author
+  intent="Close the provisioning gap at the SOT instead of adding a substitute"
+  success_criteria="Single source per value; gate green; no deprecated name or vocabulary remains"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=focus_agent
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Milton consumer gates enforce today; Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Static-only config gate"
+  DEPENDS_ON SA-002 "Literal-ban gate"
+END
+
+Process PR-002 "Recovery Action"
+  owner=focus_agent
+  description="Correct the root cause in the single source of truth; the failure stays visible until the correction lands."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Static-only config gate"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Static-only config gate"
+  owner=focus_agent
+  description="Static-only config gate"
+  system_name=milton:scripts/check-config-static-only.py
+  action="Reject DB-owned leaves in bootstrap, the deprecated table name, the seed path, and override vocabulary for DB state"
+  failure_modes="Warning-only mode or exemption list is a violation."
+END
+
+SystemAction SA-002 "Literal-ban gate"
+  owner=focus_agent
+  description="Literal-ban gate"
+  system_name=milton:scripts/check-specs-literal-bans.py
+  action="Reject added references to merge machinery and condemned readers"
+  failure_modes="Pre-existing references are open deletion work, never a pass."
+END

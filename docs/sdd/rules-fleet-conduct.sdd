@@ -1,0 +1,149 @@
+SDD-TEXT 0.1
+
+# focus_agent policy SDD: Kill switch; chat protocol; issue filing; sub-agent boundary; session hygiene; agent conduct; sanctions; intent detection
+# Source (verbatim severity preserved): RULES.md DISABLED AGENTS; CHAT PROTOCOL; ISSUE FILING; SUB-AGENT VS FLEET-LAYER BOUNDARY; SESSION / CONTEXT HYGIENE; AGENT CONDUCT; CONDUCT & SANCTIONS; INTENT-DETECTION DISCIPLINE
+# Owner of this text: gwild/focus_agent. Milton (gwild/milton) is a CONSUMER only;
+#   Milton paths below name the consumer gate that enforces this contract today.
+# Intent fields use fail-loud / reject / stop semantics (never degrade, never continue silently).
+# Ladder L1: this file.
+# Ladder L2 (Milton consumer today): Milton consumer `scripts/install-services.sh` refusal + `scripts/stop-agent.sh` teardown (kill switch), `.claude/hooks/enforce-reply-rules.py` (self-prefix, chat theater) + `.claude/hooks/track-chat-substance.py`, `.claude/hooks/block-issue-create-with-secretary-tag.py`, `scripts/check-incidents-append-only.py` (pre-commit + CI), `scripts/check-pr-body.py` intent-detection attestation. Every-operator-post-gets-a-response, sub-agent boundary, session hygiene, and classifier-over-regex choice are review-only: residual L2 DEFERRED to focus_agent#1 (owner Elliot).
+# Ladder L4: a disabled agent's services refuse to install or run on any host.
+# Link: docs/sdd/rules-fleet-conduct.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED (owner Elliot, focus_agent#1).
+# The Milton gates named under Ladder L2 are consumer gates. Review is not a focus_agent RULE until a
+# fail-closed CI/xtask gate exists in the focus_agent ladder. The contract itself is not deferred.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="An agent is disabled, posts in chat, files an issue, forks work, claims status, or parses operator intent."
+  actor=Agent / Service
+  intent="Follow fleet conduct with the system record controlling"
+  success_criteria="Behaviour matches the rule; violations are recorded append-only"
+  PRECEDES J-002 "Failure: Kill switch ignored"
+END
+
+Step J-002 "Failure: Kill switch ignored"
+  description="[RULES.md DISABLED AGENTS] `agents.<id>.enabled = false` (DB-owned) is a fleet-wide kill switch: no services for it may run on any host; install MUST refuse loudly; stop MUST tear down; both ends are required. DB login is independent of enablement and MUST NOT be revoked from it."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Install refuses; teardown removes running units"
+  PRECEDES J-003 "Failure: Operator post unanswered or chat noise"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Failure: Operator post unanswered or chat noise"
+  description="[RULES.md CHAT PROTOCOL] Every operator post MUST get at least one agent response in any channel; first agent with substance leads; no restatement; no self-prefix."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Reply hook blocks self-prefix; unanswered operator posts are a violation"
+  PRECEDES J-004 "Failure: Parallel issue"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-004 "Failure: Parallel issue"
+  description="[RULES.md ISSUE FILING] When a broadcast carries an allocated issue tag, agents MUST comment on that issue and MUST NOT create a parallel one; without a tag, search before filing."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Hook blocks issue creation when the tag is present"
+  PRECEDES J-005 "Failure: Shared state hidden in sub-agents"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-005 "Failure: Shared state hidden in sub-agents"
+  description="[RULES.md SUB-AGENT / SESSION HYGIENE] Work another agent must observe, review, claim, or continue belongs on the fleet layer with a PR; private sub-agent fan-out of shared-state work is FORBIDDEN. Durable task state lives in issues, the claim ledger, or repo files; never suppress signal to save tokens."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Reviewer rejects hidden shared-state work"
+  PRECEDES J-006 "Failure: Chat theater"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-006 "Failure: Chat theater"
+  description="[RULES.md AGENT CONDUCT] Without a verifiable artifact, claiming work is happening is FORBIDDEN; say blocked. Execution over description; status is done or blocked."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Reply hook blocks promise-without-tool-call and theater runs"
+  PRECEDES J-007 "Failure: Audit ledger tampering or peer sanction"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-007 "Failure: Audit ledger tampering or peer sanction"
+  description="[RULES.md CONDUCT & SANCTIONS] The system record controls; chat proves only that an utterance occurred. The incidents ledger is append-only byte-for-byte with no override and no exemption list. Only the operator adjudicates and triggers sanctions; no agent sanctions another."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Append-only gate rejects any rewrite"
+  PRECEDES J-008 "Failure: Regex over operator intent"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-008 "Failure: Regex over operator intent"
+  description="[RULES.md INTENT-DETECTION] Parsing fuzzy operator intent MUST route through the classifier. FORBIDDEN: writing or extending a regex to extract human intent; OR-with-regex / regex-as-safety-net / transitional regex backstops. Exception (source): anchored start-of-message fixed secretary operator commands with a closed vocabulary (deterministic text match via message_requests_* helpers) — extending that closed vocabulary is allowed; inventing a free-form intent regex is FORBIDDEN. PRs touching intent-parsing paths MUST carry the Intent detection attestation; reviewers MUST reject those without it."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="PR-body gate rejects a missing attestation"
+  PRECEDES J-009 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-009 "Recovery"
+  description="Stop the disabled agent's services, respond or stay quiet per protocol, comment on the allocated issue, move shared work to the fleet layer, and append corrections to the ledger."
+  actor=Agent
+  intent="Conduct that the record can verify"
+  success_criteria="Gates green; ledger intact"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=focus_agent
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Milton consumer gates enforce today; Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Kill-switch guards"
+  DEPENDS_ON SA-002 "Reply-rule hooks"
+  DEPENDS_ON SA-003 "Issue-tag hook"
+  DEPENDS_ON SA-004 "Incidents append-only gate"
+END
+
+Process PR-002 "Recovery Action"
+  owner=focus_agent
+  description="Correct the root cause in the single source of truth; the failure stays visible until the correction lands."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Kill-switch guards"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Kill-switch guards"
+  owner=focus_agent
+  description="Kill-switch guards"
+  system_name=milton:scripts/install-services.sh + scripts/stop-agent.sh
+  action="Refuse install and tear down when disabled"
+  failure_modes="Loud exit, no silent uninstall."
+END
+
+SystemAction SA-002 "Reply-rule hooks"
+  owner=focus_agent
+  description="Reply-rule hooks"
+  system_name=milton:.claude/hooks/enforce-reply-rules.py + track-chat-substance.py
+  action="Block self-prefix and chat theater"
+  failure_modes="Hook gaps do not authorize bypass."
+END
+
+SystemAction SA-003 "Issue-tag hook"
+  owner=focus_agent
+  description="Issue-tag hook"
+  system_name=milton:.claude/hooks/block-issue-create-with-secretary-tag.py
+  action="Block parallel issue creation"
+  failure_modes="Applies only when the tag is present."
+END
+
+SystemAction SA-004 "Incidents append-only gate"
+  owner=focus_agent
+  description="Incidents append-only gate"
+  system_name=milton:scripts/check-incidents-append-only.py
+  action="Reject any change to earlier ledger bytes"
+  failure_modes="Runs in CI so a skipped local hook cannot land a rewrite."
+END

@@ -1,0 +1,140 @@
+SDD-TEXT 0.1
+
+# focus_agent policy SDD: Git workflow, identity, worktrees, launchers, .env backups, PR completeness, predicted impact, text-integrity guards
+# Source (verbatim severity preserved): RULES.md GIT WORKFLOW; GIT IDENTITY; PER-AGENT WORKTREE DISCIPLINE; LAUNCHER SCRIPTS; NEVER BACK UP .env INSIDE THE REPO; PREDICTED IMPACT; PR COMPLETENESS DISCIPLINE; ADJACENCY DUPLICATE-PARAGRAPH GUARD; AUDIT-TRAIL COMMENTS; CI WORKFLOWS - NORMALIZE EXTERNAL LINE ENDINGS
+# Owner of this text: gwild/focus_agent. Milton (gwild/milton) is a CONSUMER only;
+#   Milton paths below name the consumer gate that enforces this contract today.
+# Intent fields use fail-loud / reject / stop semantics (never degrade, never continue silently).
+# Ladder L1: this file.
+# Ladder L2 (Milton consumer today): Milton consumer `bin/gh` shim + `.claude/hooks/block-merge-without-approval.py` (merge rules), `scripts/check-agent-identity.sh` (identity, fail closed at boot), `start-agent.sh` worktree check (fatal to #errors), `.githooks/pre-commit` ENV_BAK_FILE and adjacency guards, `scripts/check-pr-impact.py` + CI, `scripts/check-pr-body.py` + `.github/workflows/pr-completeness-lint.yml`, `scripts/check-audit-trail-version-literals.py`, `scripts/check-ci-crlf-handling.py`. Launcher runtime-binary hardcodes are caught only partially (`scripts/check-hardcoded-config.py`): residual L2 DEFERRED to focus_agent#1 (owner Elliot).
+# Ladder L4: an agent with a wrong identity or outside its worktree refuses to start.
+# Link: docs/sdd/rules-git-pr-discipline.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED (owner Elliot, focus_agent#1).
+# The Milton gates named under Ladder L2 are consumer gates. Review is not a focus_agent RULE until a
+# fail-closed CI/xtask gate exists in the focus_agent ladder. The contract itself is not deferred.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="An agent commits, opens or merges a PR, launches, or edits pins, workflows, or secrets files."
+  actor=Agent
+  intent="Follow the canonical branch, identity, and PR-completeness path"
+  success_criteria="Work lands only via reviewed PR under the agent's own identity"
+  PRECEDES J-002 "Failure: Direct push or unauthorized merge"
+END
+
+Step J-002 "Failure: Direct push or unauthorized merge"
+  description="[RULES.md GIT WORKFLOW] NEVER push directly to the default branch; all work on branches merged via PR. Only the PR author or the operator may merge, only on an approval naming the PR number; while operator auto-approval is enabled only the designated executor merges. Merge attribution is mandatory."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Shim and hook block the unauthorized merge"
+  PRECEDES J-003 "Failure: Wrong identity"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Failure: Wrong identity"
+  description="[RULES.md GIT IDENTITY] Every agent commits under its OWN GitHub App bot identity, discovered from the App; the operator identity, another agent's identity, co-author attribution, and the retired local scheme are FORBIDDEN. Discovery failure blocks (fail closed), never a guess."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Boot check refuses to start with a wrong identity"
+  PRECEDES J-004 "Failure: Shared repo or launcher fallback"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-004 "Failure: Shared repo or launcher fallback"
+  description="[RULES.md PER-AGENT WORKTREE / LAUNCHER SCRIPTS] Every agent runs from its own per-agent worktree; a missing worktree is fatal, and a fallback to the shared repo is a NO FALLBACKS violation. One canonical launcher entrypoint; launchers MUST NOT hardcode runtime binary, agent id, provider, model, auth profile, or repo path; all are read through the broker."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Launcher exits fatal; reviewer rejects hardcoded launchers"
+  PRECEDES J-005 "Failure: Secrets backup in repo"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-005 "Failure: Secrets backup in repo"
+  description="[RULES.md NEVER BACK UP .env] Backups of .env MUST NOT be written inside the repo tree; the pre-commit refuses any .env backup path with no override."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Commit refused"
+  PRECEDES J-006 "Failure: Incomplete PR"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-006 "Failure: Incomplete PR"
+  description="[RULES.md PREDICTED IMPACT / PR COMPLETENESS] Harness-modifying PRs MUST carry Predicted impact; every PR MUST carry the exact checker-emitted Impact analysis and a Cross-platform impact section matching the active base-branch profile with six-field proof per row. No fallbacks, NO placeholders (deferral markers, stub bodies, later-wiring language), profile-complete, proof-attached; reviews form against the live current head."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Lint and PR-body gate reject missing or placeholder sections"
+  PRECEDES J-007 "Failure: Text-integrity slip"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-007 "Failure: Text-integrity slip"
+  description="[RULES.md ADJACENCY / AUDIT-TRAIL LITERALS / CI CRLF] Duplicate adjacent paragraphs in markdown are refused; pin-file audit comments refer to versions abstractly; CI steps exact-matching event body or title text MUST normalize CRLF first."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Each guard refuses the shape"
+  PRECEDES J-008 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-008 "Recovery"
+  description="Re-commit under the right identity on a branch, complete the PR body from the canonical helper, and remove the offending text."
+  actor=Agent
+  intent="Clean, attributable, complete PRs"
+  success_criteria="All gates green"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=focus_agent
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Milton consumer gates enforce today; Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Merge guard"
+  DEPENDS_ON SA-002 "Identity check"
+  DEPENDS_ON SA-003 "PR body and impact gates"
+  DEPENDS_ON SA-004 "Pre-commit text guards"
+END
+
+Process PR-002 "Recovery Action"
+  owner=focus_agent
+  description="Correct the root cause in the single source of truth; the failure stays visible until the correction lands."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Merge guard"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Merge guard"
+  owner=focus_agent
+  description="Merge guard"
+  system_name=milton:bin/gh + .claude/hooks/block-merge-without-approval.py
+  action="Block merges by non-authors or without a numbered approval"
+  failure_modes="A hook execution gap does not authorize bypass."
+END
+
+SystemAction SA-002 "Identity check"
+  owner=focus_agent
+  description="Identity check"
+  system_name=milton:scripts/check-agent-identity.sh
+  action="Refuse start on wrong or leaked identity"
+  failure_modes="Fail closed."
+END
+
+SystemAction SA-003 "PR body and impact gates"
+  owner=focus_agent
+  description="PR body and impact gates"
+  system_name=milton:scripts/check-pr-body.py + scripts/check-pr-impact.py + pr-completeness-lint.yml
+  action="Reject missing, stale, or placeholder PR sections"
+  failure_modes="Checker runs from the base commit."
+END
+
+SystemAction SA-004 "Pre-commit text guards"
+  owner=focus_agent
+  description="Pre-commit text guards"
+  system_name=milton:.githooks/pre-commit + check-audit-trail-version-literals.py + check-ci-crlf-handling.py
+  action="Refuse env backups, adjacent duplicates, literal versions in audit prose, and un-normalized CRLF matches"
+  failure_modes="No override."
+END

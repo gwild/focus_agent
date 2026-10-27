@@ -1,0 +1,68 @@
+SDD-TEXT 0.1
+
+# focus_agent policy SDD: Fleet agents do not create draft pull requests
+# Source (verbatim severity preserved): milton-specs.md #39
+# Owner of this text: gwild/focus_agent. Milton (gwild/milton) is a CONSUMER only;
+#   Milton paths below name the consumer gate that enforces this contract today.
+# Intent fields use fail-loud / reject / stop semantics (never degrade, never continue silently).
+# Ladder L1: this file.
+# Ladder L2 (Milton consumer today): Milton consumer `.claude/hooks/block-draft-pr-create.py` and the `bin/gh` gate deny draft creation; per #39 the rule MUST NOT be claimed enforced until those surfaces and deny/allow tests exist.
+# Ladder L4: the PR announcement helper refuses to call a draft ready.
+# Link: docs/sdd/039-no-draft-prs.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED (owner Elliot, focus_agent#1).
+# The Milton gates named under Ladder L2 are consumer gates. Review is not a focus_agent RULE until a
+# fail-closed CI/xtask gate exists in the focus_agent ladder. The contract itself is not deferred.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="An agent wants to open a PR for incomplete work."
+  actor=Agent
+  intent="Keep work on the branch until reviewable"
+  success_criteria="PR opened only when code, proof, and body are reviewable"
+  PRECEDES J-002 "Failure: Draft PR"
+END
+
+Step J-002 "Failure: Draft PR"
+  description="[#39] Fleet agents MUST NOT create draft PRs by any path (CLI flag or API). The gate is fail-closed for ambiguous draft inputs."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Gate denies draft creation"
+  PRECEDES J-003 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Recovery"
+  description="Push to the branch; open the PR through the canonical tool when reviewable."
+  actor=Agent
+  intent="No draft PRs consume review cycles"
+  success_criteria="Only ready PRs exist"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=focus_agent
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Milton consumer gate enforces today; Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Draft PR gate"
+END
+
+Process PR-002 "Recovery Action"
+  owner=focus_agent
+  description="Correct the root cause in the single source of truth; the failure stays visible until the correction lands."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Draft PR gate"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Draft PR gate"
+  owner=focus_agent
+  description="Draft PR gate"
+  system_name=milton:.claude/hooks/block-draft-pr-create.py + bin/gh
+  action="Deny draft PR creation"
+  failure_modes="Ambiguous inputs are denied."
+END

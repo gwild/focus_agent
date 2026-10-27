@@ -1,0 +1,77 @@
+SDD-TEXT 0.1
+
+# focus_agent policy SDD: Local models are never sited through a CLI runtime tunnel; catalog rows match a real launch path
+# Source (verbatim severity preserved): milton-specs.md #34
+# Owner of this text: gwild/focus_agent. Milton (gwild/milton) is a CONSUMER only;
+#   Milton paths below name the consumer gate that enforces this contract today.
+# Intent fields use fail-loud / reject / stop semantics (never degrade, never continue silently).
+# Ladder L1: this file.
+# Ladder L2 (Milton consumer today): Milton consumer `scripts/check-specs-literal-bans.py` blocks the local-provider CLI env block and lines pairing the local provider with the codex runtime. Fail closed, zero exceptions.
+# Ladder L4: launchers refuse a local-provider seat with any runtime other than the sanctioned direct-HTTP runtime.
+# Link: docs/sdd/034-local-llm-not-via-cli-tunnel.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED (owner Elliot, focus_agent#1).
+# The Milton gates named under Ladder L2 are consumer gates. Review is not a focus_agent RULE until a
+# fail-closed CI/xtask gate exists in the focus_agent ladder. The contract itself is not deferred.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="A change wires a local on-LAN model to a seat, catalog, deploy path, or provider."
+  actor=Author
+  intent="Use the pre-existing direct-HTTP consumer"
+  success_criteria="Seat uses the sanctioned local runtime; classifier, vision, and JIT use direct HTTP"
+  PRECEDES J-002 "Failure: CLI tunnel"
+END
+
+Step J-002 "Failure: CLI tunnel"
+  description="[#34] Local models are NOT sited through Codex, Claude Code, or Cursor. The banned triple (local provider + codex runtime + local model id), tunnel env blocks, tunnel-only identity tokens, and launcher branches for it are FORBIDDEN and deleted on sight."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Gate blocks the banned pairing"
+  PRECEDES J-003 "Failure: Invented catalog row"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Failure: Invented catalog row"
+  description="[#34] A catalog (provider, runtime, model) triple MUST match a real, already-supported launch path; fixing a wrong row by making the CLI work around it is FORBIDDEN."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Wrong rows are corrected in the catalog"
+  PRECEDES J-004 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-004 "Recovery"
+  description="Correct the catalog row and use the sanctioned consumer."
+  actor=Author
+  intent="Reuse the existing local-model path"
+  success_criteria="No tunnel path remains"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=focus_agent
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Milton consumer gate enforces today; Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Literal-ban gate"
+END
+
+Process PR-002 "Recovery Action"
+  owner=focus_agent
+  description="Correct the root cause in the single source of truth; the failure stays visible until the correction lands."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Literal-ban gate"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Literal-ban gate"
+  owner=focus_agent
+  description="Literal-ban gate"
+  system_name=milton:scripts/check-specs-literal-bans.py
+  action="Block local-provider CLI tunnel config"
+  failure_modes="Reviewer MUST reject all listed shapes."
+END
