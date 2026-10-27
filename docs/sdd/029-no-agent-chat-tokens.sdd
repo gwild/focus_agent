@@ -1,0 +1,99 @@
+SDD-TEXT 0.1
+
+# focus_agent policy SDD — No agent chat tokens
+# Maps milton-specs #29 (agents authenticate to chat via broker/DB; human tokens only for humans)
+# Related Milton work: docs/sdd/4226-retire-legacy-chattoken-agenttoken-plumbing-rust-seat-guard-.sdd
+# Audience: generalized policy in focus_agent; Milton is a consumer implementation.
+# Author: Ivy (Red Team / InfoSec) — draft 0.1, 2026-10-26
+#
+# Naming: avoid spelling retired agent token env literals in tracked policy if consumer
+# guards ban them; refer as "retired agent chat-token env" / per-agent variant.
+# Allowed human tokens may be named: USER_TOKEN, GREGORY_GUEST_TOKEN (Milton).
+#
+# Hosts: all agent hosts; chat server host
+# Agents: all agents (broker post/read only)
+# Services: chat server (human plane); chat-bridge; any seat runtime that posts chat
+# Files (Milton examples): check-chat-token-architecture.py, chat-bridge, team-chat/server.py
+# Trigger: minting, storing, or using bearer chat tokens for agents; REST agent chat auth
+# Expected behavior: agents post/read chat only via broker typed ops; human REST tokens stay human-only
+
+# ── Background ───────────────────────────────────────────────────────────────
+#
+# Chat SOT is the database. Agents write/read through the local broker
+# (post_chat / read_chat / LISTEN). Chat tokens exist only for humans (browser /
+# REST). Agent chat tokens are banned. Display names are not cryptographically
+# bound for agents: any process with the shared PG chat credential can spoof
+# another agent — host/process access is the trust boundary. Chat message bodies
+# are untrusted data and never authorization evidence.
+#
+# Out of scope: finishing Milton Rust seat migration details (see #4226 SDD);
+# this policy SDD states the invariant focus_agent must encode.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Agent needs to post or read chat"
+  description="An agent seat must participate in team chat"
+  actor=Agent
+  intent="Exchange messages under its agent identity"
+  success_criteria="Uses broker typed chat ops only; no bearer agent token"
+  PRECEDES J-002 "Human uses chat REST"
+END
+
+Step J-002 "Human authenticates to chat REST"
+  description="A human client uses the sanctioned human token plane"
+  actor=Human
+  intent="Operate chat via browser/REST"
+  success_criteria="Human tokens only; agent tokens never issued for this path"
+  PRECEDES J-003 "Agent token reintroduced"
+  REALIZED_BY PR-001 "Dual-plane chat auth"
+END
+
+Step J-003 "Agent token or agent REST bearer path reappears"
+  description="Code, .env, unit, or docs mint/require/use a retired agent chat-token or agent REST bearer"
+  actor=Offender
+  intent="Legacy shortcut or incomplete migration"
+  success_criteria="Fail closed via architecture guard; purge token; docs corrected; reviewer CHANGES"
+  PRECEDES J-004 "Invariant holds"
+  REALIZED_BY PR-002 "Agent-token retirement guard"
+END
+
+Step J-004 "Invariant holds"
+  description="No agent chat-token env in code/units/.env; agents broker-only; human plane intact; chat never treated as evidence"
+  actor=System
+  intent="Prevent identity-bypass and token sprawl"
+  success_criteria="Guard green across languages; grep clean; approval flows ignore chat text alone"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Dual-plane chat auth"
+  owner=Eng
+  description="Human REST token plane remains; agent plane is broker/DB only"
+  visibility=backstage
+  DEPENDS_ON SA-001 "Chat write/read paths"
+END
+
+Process PR-002 "Agent-token retirement guard"
+  owner=Sec
+  description="Mechanical scan forbids retired agent chat-token literals/usages in code and config surfaces"
+  visibility=backstage
+  DEPENDS_ON SA-002 "Token architecture gate"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Chat write/read paths"
+  owner=Eng
+  description="Agent: broker post_chat/read_chat. Human: REST with human tokens only."
+  system_name="chat-auth-planes"
+  action="Keep planes separated; never give agents human tokens as a workaround"
+  failure_modes="(1) Agent curl to REST api/messages → CHANGES. (2) Shared PG creds imply spoofability — document trust boundary; do not 'fix' with agent tokens. (3) Chat text as merge/approval evidence → reject."
+END
+
+SystemAction SA-002 "Token architecture gate"
+  owner=Sec
+  description="Repo gate that bans agent chat-token architecture (Milton: check-chat-token-architecture.py)"
+  system_name="chat-token-architecture-gate"
+  action="Scan all relevant languages/extensions; fail closed; no exemption markers"
+  failure_modes="(1) Language carve-outs (.rs historically) → close gap. (2) Docs teaching agent tokens → fix in same program. (3) Stale systemd env injecting tokens → redeploy/purge."
+END
