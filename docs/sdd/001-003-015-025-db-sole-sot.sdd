@@ -10,9 +10,12 @@ SDD-TEXT 0.1
 # Ladder L4: readers fail loud on a missing DB value; they never read a substitute from bootstrap.
 # Link: docs/sdd/001-003-015-025-db-sole-sot.sdd
 #
-# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED (owner Elliot, focus_agent#1).
-# The Milton gates named under Ladder L2 are consumer gates. Review is not a focus_agent RULE until a
-# fail-closed CI/xtask gate exists in the focus_agent ladder. The contract itself is not deferred.
+# focus_agent rule status: **RULE** (SDD + fail-closed named Milton consumer gate).
+# Ladder L2 Milton consumers are the fail-closed gate for this cluster (#1/#3/#15/#25):
+#   `scripts/check-config-static-only.py`, `scripts/check-specs-literal-bans.py`,
+#   `.github/workflows/config-static-only.yml`, and the matching pre-commit hook.
+# Generalized focus_agent-native CI/xtask binding remains tracked on focus_agent#1 (owner Elliot);
+# this promotion does not wait on that wiring — same pattern as #32.
 
 # ── Trigger scenario ─────────────────────────────────────────────────────────
 
@@ -72,7 +75,7 @@ END
 
 Process PR-001 "Detection"
   owner=focus_agent
-  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Milton consumer gates enforce today; Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Milton consumer gates enforce today and are the focus_agent RULE ladder for this cluster; generalized focus_agent-native CI/xtask binding remains tracked on gwild/focus_agent#1 (owner Elliot)."
   visibility=backstage
   DEPENDS_ON SA-001 "Static-only config gate"
   DEPENDS_ON SA-002 "Literal-ban gate"
