@@ -106,7 +106,8 @@ Deferral covers the **focus_agent enforcer wiring only** (owner Elliot, tracking
 - [`docs/sdd/001-003-015-025-db-sole-sot.sdd`](001-003-015-025-db-sole-sot.sdd): #1; #3; #15; #25
 - [`docs/sdd/002-026-027-bootstrap-structure-only.sdd`](002-026-027-bootstrap-structure-only.sdd): #2; #26; #27; DEPRECATED CONFIG FIELDS
 - [`docs/sdd/004-broker-only-db-path.sdd`](004-broker-only-db-path.sdd): #4
-- [`docs/sdd/005-030-env-pg-pass-only.sdd`](005-030-env-pg-pass-only.sdd): #5; #30
+- [`docs/sdd/005-env-holds-only-db-pass.sdd`](005-env-holds-only-db-pass.sdd): #5
+- [`docs/sdd/030-env-pg-user-password-only.sdd`](030-env-pg-user-password-only.sdd): #30
 - [`docs/sdd/006-007-008-provisioner-and-pure-consumers.sdd`](006-007-008-provisioner-and-pure-consumers.sdd): #6; #7; #8
 - [`docs/sdd/009-linux-only-model-agnostic.sdd`](009-linux-only-model-agnostic.sdd): #9; MODEL-AGNOSTIC + PLATFORM-AGNOSTIC
 - [`docs/sdd/011-012-013-014-identity-classes.sdd`](011-012-013-014-identity-classes.sdd): #11; #12; #13; #14

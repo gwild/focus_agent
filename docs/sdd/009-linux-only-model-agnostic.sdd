@@ -1,7 +1,7 @@
 SDD-TEXT 0.1
 
 # focus_agent policy SDD: Fleet is linux-only; infrastructure is model-agnostic
-# Source (verbatim severity preserved): milton-specs.md #9; RULES.md MODEL-AGNOSTIC + PLATFORM-AGNOSTIC (model clause; platform clause superseded by #9 and the active `linux-only` impact profile)
+# Source (verbatim severity preserved): milton-specs.md #9; RULES.md MODEL-AGNOSTIC + PLATFORM-AGNOSTIC (model clause intact; platform clause CONFLICT OPEN vs #9 — interim operate under #9 linux-only + #10; Gregory must rule before any "superseded" claim)
 # Owner of this text: gwild/focus_agent. Milton (gwild/milton) is a CONSUMER only;
 #   Milton paths below name the consumer gate that enforces this contract today.
 # Intent fields use fail-loud / reject / stop semantics (never degrade, never continue silently).
@@ -54,7 +54,7 @@ END
 
 Process PR-001 "Detection"
   owner=focus_agent
-  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Source conflict recorded: RULES.md PLATFORM-AGNOSTIC text predates #9; #9 and the base-branch linux-only profile control. Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Source conflict OPEN: RULES.md PLATFORM-AGNOSTIC vs milton-specs #9 linux-only. Interim operate under #9 (+ #10 ignore cross-platform reviewer demands). Gregory must rule before claiming either superseded. Do not treat this SDD as resolving the conflict. Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
   visibility=backstage
   DEPENDS_ON SA-001 "Literal-ban gate"
   DEPENDS_ON SA-002 "Hardcoded-config gate"
