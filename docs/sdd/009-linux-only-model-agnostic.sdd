@@ -82,5 +82,5 @@ SystemAction SA-002 "Hardcoded-config gate"
   description="Hardcoded-config gate"
   system_name=milton:scripts/check-hardcoded-config.py
   action="Block catalog values duplicated as code literals"
-  failure_modes="Count baseline grandfathers existing hits; new ones block."
+  failure_modes="Count baseline is a non-expanding debt ratchet only (count MUST NOT rise) — never a pass; new hits MUST block. Existing hits are debt, not a grandfathered pass."
 END

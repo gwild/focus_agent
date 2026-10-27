@@ -79,7 +79,7 @@ Step J-007 "Failure: Audit ledger tampering or peer sanction"
 END
 
 Step J-008 "Failure: Regex over operator intent"
-  description="[RULES.md INTENT-DETECTION] Parsing operator intent MUST prefer the classifier; PRs touching intent-parsing paths MUST carry the Intent detection attestation and reviewers MUST reject those without it."
+  description="[RULES.md INTENT-DETECTION] Parsing fuzzy operator intent MUST route through the classifier. FORBIDDEN: writing or extending a regex to extract human intent; OR-with-regex / regex-as-safety-net / transitional regex backstops. Exception (source): anchored start-of-message fixed secretary operator commands with a closed vocabulary (deterministic text match via message_requests_* helpers) — extending that closed vocabulary is allowed; inventing a free-form intent regex is FORBIDDEN. PRs touching intent-parsing paths MUST carry the Intent detection attestation; reviewers MUST reject those without it."
   actor=Offending change, process, or agent
   intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
   success_criteria="PR-body gate rejects a missing attestation"

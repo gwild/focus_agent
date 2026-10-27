@@ -61,7 +61,7 @@ Step J-005 "Failure: Tier 2 one-shot masks failure"
 END
 
 Step J-006 "Failure: Tier 3 coerced input"
-  description="[RULES.md SILENT-FAILURE Tier 3] Request handler, per-request invariant: REJECT this one request synchronously, accept the next; no retry, no process exit. Silently coercing invalid input into a best-guess valid input is FORBIDDEN. Any bypass MUST be an explicit named flag whose use is itself user-visible; an annotation is never a bypass."
+  description="[RULES.md SILENT-FAILURE Tier 3] Request handler, per-request invariant: REJECT this one request synchronously, accept the next; no retry, no process exit. Silently coercing invalid input into a best-guess valid input is FORBIDDEN. Any bypass MUST be an explicit named `bypass_*` flag or override mechanism with its own justification, authorized by the operator (Gregory); its use MUST itself be user-visible. An annotation is never a bypass. Agents MUST NOT invent new bypass flags."
   actor=Offending change, process, or agent
   intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
   success_criteria="Invalid request is rejected visibly"
@@ -158,7 +158,7 @@ SystemAction SA-001 "Silent-fallback gate"
   description="Silent-fallback gate"
   system_name=milton:scripts/check-no-silent-fallbacks.py
   action="Reject literal defaults and literal-returning except blocks"
-  failure_modes="Count baseline grandfathers untouched occurrences only; touched files sweep per fix-on-discovery."
+  failure_modes="Count baseline is a non-expanding debt ratchet only (count MUST NOT rise) — never a pass. Touched-file fix-on-discovery sweep is enforced by SA-004 (pre-commit full-content scan), not by the baseline."
 END
 
 SystemAction SA-002 "JS fallback gate"
