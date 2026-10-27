@@ -1,10 +1,29 @@
 SDD-TEXT 0.1
 
 # Milton-spec #4: Local per-agent DB-transport broker (LDB) — the ONLY DB path
+# Fields: hosts, agents, services, files, trigger, expected recovery, scenario flow
+# Source: gwild/milton milton-specs.md hard rule 4 (revised 2026-08-11)
+# Home: gwild/focus_agent. Milton is consumer.
+# Author: Ivy (Red Team / InfoSec) — draft 0.1.1, 2026-10-26
+# Link: docs/sdd/004-broker-only-db-path.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED.
+# Milton may already run connector/broker gates; review ≠ focus_agent RULE until a
+# fail-closed CI/xtask (or equivalent) gate exists in the focus_agent ladder.
+# Ladder gap: SDD yes; focus_agent mechanical check — not yet (tracking focus_agent#1).
 
-# Source: gwild/milton milton-specs.md hard rule 4 (revised 2026-08-11).
-# Home of generalized contract: gwild/focus_agent. Milton consumes via broker + connector gates.
-# Author: Ivy (Red Team / InfoSec) — draft 0.1, 2026-10-26
+# ── MUST / FORBIDDEN (normative) ─────────────────────────────────────────────
+# MUST: Exactly one process class opens Postgres for an agent: the local per-agent DB broker (LDB).
+# MUST: All agent/service/script/dashboard/test/deploy DB I/O goes through that broker over a
+#       per-agent unix socket using a fixed, closed, typed-op set.
+# FORBIDDEN: Raw SQL from any consumer.
+# FORBIDDEN: Consumers reading PG_* / holding the agent DB pass to reach Postgres.
+# FORBIDDEN: SSH-relay broker, separate broker-pass, central/remote proxy (rejected forever).
+# MUST: Missing typed op → add the op to the broker. FORBIDDEN: open a direct connection "just once."
+# MUST: Seat ownership signal is broker whoami presence. FORBIDDEN: hostname-field ownership gates.
+# MUST: Reviewers REJECT new bypasses; gates MUST fail closed (no exemption marker, no warning-only).
+# MUST: Live fleet_config / secret mutations that change SOT are human-operator paths
+#       (Gregory / set_fleet_config / set_secret). Agents only consume via broker typed ops.
 
 # ── Trigger scenario ─────────────────────────────────────────────────────────
 
@@ -17,7 +36,7 @@ Step J-001 "Consumer needs DB state"
 END
 
 Step J-002 "Broker is the only Postgres client"
-  description="The local broker authenticates with the agent PG pass from .env and runs the typed op against Postgres. No other process on the host opens Postgres for this agent."
+  description="The local broker authenticates with the agent PG pass from .env and runs the typed op against Postgres."
   actor=LocalBroker
   intent="Consolidate all DB access behind one process and one credential"
   success_criteria="Only the co-located broker holds the agent DB pass and opens Postgres"
@@ -29,16 +48,16 @@ Step J-003 "Bypass attempt is rejected"
   description="Code tries a Postgres driver, raw SQL, connect(), SSH-relay, central proxy, or reading PG_* outside the broker."
   actor=Offender
   intent="Shortcut for convenience or legacy pattern"
-  success_criteria="Fail closed: mechanical gate/hook rejects; reviewer CHANGES; no exemption marker; missing capability becomes a new typed op"
+  success_criteria="Fail closed: mechanical gate rejects; reviewer CHANGES; no exemption marker"
   PRECEDES J-004 "Invariant holds"
   REALIZED_BY PR-002 "Direct-DB ban enforcement"
 END
 
 Step J-004 "Invariant holds"
-  description="Fleet code and new PRs contain no non-broker DB clients. Ownership of a seat is broker presence (whoami), not a hostname field."
+  description="Fleet code and new PRs contain no non-broker DB clients. Ownership checks use broker whoami, not hostname."
   actor=System
   intent="Keep DB SOT reachable only through the broker forever"
-  success_criteria="Audit/gate green; no SSH-relay / central proxy / separate broker-pass (rejected forever)"
+  success_criteria="Audit/gate green when the focus_agent enforcer lands; until then Milton consumer gates + reviewer REJECT"
 END
 
 # ── Processes ────────────────────────────────────────────────────────────────
@@ -52,7 +71,7 @@ END
 
 Process PR-002 "Direct-DB ban enforcement"
   owner=Milton-consumer
-  description="Hooks/gates reject Postgres drivers, raw SQL, and PG_* reads outside the broker; reviewers reject new bypasses."
+  description="Hooks/gates reject Postgres drivers, raw SQL, and PG_* reads outside the broker. focus_agent CI/xtask gate DEFERRED (focus_agent#1)."
   visibility=public
   DEPENDS_ON SA-002 "Connector / driver audit gate"
 END
@@ -63,14 +82,14 @@ SystemAction SA-001 "Local broker process"
   owner=Milton-consumer
   description="db-broker@<agent> (or generalized equivalent) co-located with the agent seat."
   system_name=scripts/db-broker.py
-  action="Accept typed ops on per-agent socket; open Postgres with agent PG pass only."
-  failure_modes="(1) Broker down → consumers fail loud, never open their own connection. (2) Wrong socket → permission/path error, not silent fallback to another agent. (3) Temptation to SSH-relay or centralize → REJECTED forever."
+  action="MUST accept typed ops on per-agent socket; MUST open Postgres with agent PG pass only"
+  failure_modes="(1) Broker down → consumers MUST fail loud; FORBIDDEN to open their own connection. (2) Wrong socket → permission/path error; FORBIDDEN silent fallback to another agent. (3) SSH-relay / centralize — FORBIDDEN forever."
 END
 
 SystemAction SA-002 "Connector / driver audit gate"
   owner=Milton-consumer
-  description="Mechanical ban on non-broker DB connectors (Milton: check-db-connectors / harness hooks)."
+  description="Mechanical ban on non-broker DB connectors (Milton: check-db-connectors / harness hooks). focus_agent enforcer DEFERRED."
   system_name=scripts/audit/check-db-connectors.py
-  action="Fail closed on direct driver/SQL/PG_* outside broker; zero exemptions."
-  failure_modes="(1) Warning-only mode → treat as CHANGES. (2) Test helpers temporarily connecting → same ban. (3) Dashboard/provisioner special cases → migrate to typed ops, delete direct connect."
+  action="MUST fail closed on direct driver/SQL/PG_* outside broker; zero exemptions"
+  failure_modes="(1) Warning-only mode — FORBIDDEN (treat as CHANGES). (2) Test helpers temporarily connecting — FORBIDDEN. (3) Dashboard/provisioner special cases — MUST migrate to typed ops and delete direct connect."
 END

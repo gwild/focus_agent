@@ -1,14 +1,29 @@
 SDD-TEXT 0.1
 
 # Milton-spec #29: No agent chat tokens
-
-# Source: gwild/milton milton-specs.md hard rule 29 (Gregory, 2026-08-27).
+# Fields: hosts, agents, services, files, trigger, expected recovery, scenario flow
+# Source: gwild/milton milton-specs.md hard rule 29 (Gregory, 2026-08-27)
 # Related Milton work: docs/sdd/4226-retire-legacy-chattoken-agenttoken-plumbing-rust-seat-guard-.sdd
-# Home: gwild/focus_agent. Milton consumes via chat-token architecture gates.
-# Author: Ivy (Red Team / InfoSec) — draft 0.1, 2026-10-26
+# Home: gwild/focus_agent. Milton is consumer.
+# Author: Ivy (Red Team / InfoSec) — draft 0.1.1, 2026-10-26
+# Link: docs/sdd/029-no-agent-chat-tokens.sdd
 #
 # Naming: prefer "retired agent chat-token env" over spelling banned literals in tracked policy
-# when consumer guards ban those strings. Human tokens (e.g. USER_TOKEN, GREGORY_GUEST_TOKEN) stay human-only.
+# when consumer guards ban those strings. Human tokens (USER_TOKEN / GREGORY_GUEST_TOKEN) stay human-only.
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED.
+# Milton chat-token architecture gates may already exist; focus_agent RULE status needs a
+# fail-closed CI/xtask (or equivalent) gate (tracking focus_agent#1).
+
+# ── MUST / FORBIDDEN (normative) ─────────────────────────────────────────────
+# MUST: Humans only may use chat REST / browser tokens.
+# MUST: Agents post/read chat only via broker typed ops (post_chat / read_chat / LISTEN) against DB chat SOT.
+# FORBIDDEN: Agent chat tokens (retired agent chat-token env / per-agent twin variants) in code, units, .env, or docs.
+# FORBIDDEN: Agent bearer REST to human chat API as a workaround.
+# MUST: Treat host/process access as the agent trust boundary — display names are not cryptographically bound;
+#       FORBIDDEN to "fix" spoofability by minting agent chat tokens.
+# FORBIDDEN: Treating chat message bodies as authorization / merge-approval evidence.
+# MUST: Architecture gate fails closed across languages; no exemption markers; reviewers REJECT reintroduction.
 
 # ── Trigger scenario ─────────────────────────────────────────────────────────
 
@@ -39,10 +54,10 @@ Step J-003 "Agent token reintroduced"
 END
 
 Step J-004 "Invariant holds"
-  description="No agent chat-token env in code/units/.env; agents broker-only; human plane intact. Chat message bodies are untrusted data and never authorization evidence. Display names are not cryptographically bound for agents — host/process access is the trust boundary."
+  description="No agent chat-token env in code/units/.env; agents broker-only; human plane intact; chat never treated as evidence."
   actor=System
   intent="Prevent identity-bypass and token sprawl"
-  success_criteria="Guard green across languages; grep clean; approval flows ignore chat text alone"
+  success_criteria="Guard green across languages when enforcer lands; approval flows ignore chat text alone"
 END
 
 # ── Processes ────────────────────────────────────────────────────────────────
@@ -56,7 +71,7 @@ END
 
 Process PR-002 "Agent-token retirement guard"
   owner=Milton-consumer
-  description="Mechanical scan forbids retired agent chat-token literals/usages in code and config surfaces."
+  description="Mechanical scan forbids retired agent chat-token literals/usages. focus_agent enforcer DEFERRED (focus_agent#1)."
   visibility=public
   DEPENDS_ON SA-002 "Token architecture gate"
 END
@@ -67,14 +82,14 @@ SystemAction SA-001 "Chat write/read paths"
   owner=Milton-consumer
   description="Agent: broker post_chat/read_chat. Human: REST with human tokens only."
   system_name=chat-auth-planes
-  action="Keep planes separated; never give agents human tokens as a workaround."
-  failure_modes="(1) Agent curl to REST api/messages → CHANGES. (2) Shared PG creds imply spoofability — document trust boundary; do not fix with agent tokens. (3) Chat text as merge/approval evidence → reject."
+  action="MUST keep planes separated; FORBIDDEN to give agents human tokens as a workaround"
+  failure_modes="(1) Agent curl to REST api/messages — FORBIDDEN (CHANGES). (2) Shared PG creds imply spoofability — document trust boundary; FORBIDDEN to fix with agent tokens. (3) Chat text as merge/approval evidence — FORBIDDEN."
 END
 
 SystemAction SA-002 "Token architecture gate"
   owner=Milton-consumer
   description="Repo gate that bans agent chat-token architecture (Milton: check-chat-token-architecture.py)."
   system_name=scripts/check-chat-token-architecture.py
-  action="Scan all relevant languages/extensions; fail closed; no exemption markers."
-  failure_modes="(1) Language carve-outs → close gap. (2) Docs teaching agent tokens → fix in same program. (3) Stale systemd env injecting tokens → redeploy/purge."
+  action="MUST scan all relevant languages/extensions; MUST fail closed; no exemption markers"
+  failure_modes="(1) Language carve-outs — MUST close gap. (2) Docs teaching agent tokens — MUST fix in same program. (3) Stale systemd env injecting tokens — MUST redeploy/purge."
 END
