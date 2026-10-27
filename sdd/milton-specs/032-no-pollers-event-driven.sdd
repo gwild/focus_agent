@@ -1,0 +1,59 @@
+SDD-TEXT 0.1
+
+# Milton-spec #32: NO POLLERS — event-driven only (never revive a mechanism under replacement)
+
+# Source: gwild/milton milton-specs.md hard rule 32 (Gregory, 2026-08-28; gate earned 2026-10-25).
+# Home of generalized contract: gwild/focus_agent. Milton consumes via check-no-pollers + CI.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Author proposes coordination that waits on a clock"
+  description="An engineer or agent needs to detect a state change (merge, chat, receipt, fleet flag) and reaches for sleep/poll/timer/cron instead of an existing event."
+  actor=PR author
+  intent="Ship coordination without burning shared-fleet CPU on re-list loops"
+  success_criteria="Design names an event source (PG LISTEN/NOTIFY, GitHub webhook, or other existing bus) or is rejected"
+  PRECEDES J-002 "Pre-commit / mkpr / CI runs no-pollers gate"
+END
+
+Step J-002 "Pre-commit / mkpr / CI runs no-pollers gate"
+  description="scripts/check-no-pollers.py runs on staged changes (pre-commit), mkpr.sh, and the specs-rules-gates workflow. Zero exceptions: no exemption marker, no PR-body justification tier, no warning-only mode."
+  actor=check-no-pollers.py
+  intent="Fail loud before merge if a poller/timer pattern is introduced or a deleted timers.* key is revived"
+  success_criteria="Exit non-zero with rule #32 text on violation; exit zero when clean"
+  PRECEDES J-003 "Reviewer rejects poller revival during migration"
+  REALIZED_BY PR-001 "Mechanical no-pollers gate"
+END
+
+Step J-003 "Reviewer rejects poller revival during migration"
+  description="When the fleet is mid-migration off a poller, restarting or temporarily re-enabling that poller is a REGRESSION. Reviewers reject revival; authors advance the replacement or use the manual authorized path."
+  actor=Reviewer
+  intent="Do not re-earn the cost the replacement was designed to remove"
+  success_criteria="CHANGES_REQUESTED citing #32, or replacement advanced without revival"
+  PRECEDES J-004 "Runtime uses event bus only"
+END
+
+Step J-004 "Runtime uses event bus only"
+  description="Live coordination consumes PostgreSQL LISTEN/NOTIFY (broker command_notify, chat NOTIFY) or GitHub App webhooks (dashboard /api/github_webhook → #repo). No while-True sleep loops, timer re-listers, or cron re-checkers for change detection."
+  actor=Merged code / fleet runtime
+  intent="Event-driven coordination on a shared fleet"
+  success_criteria="No new poll loop, timed-wait ticker, Timer/sched/schedule, shell sleep/watch/crontab, Rust/JS interval, systemd .timer / On*Sec=, or new timers.* catalog path lands without Gregory changing this rule and the gate in the same PR"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Mechanical no-pollers gate"
+  owner=Milton-consumer
+  description="Keep scripts/check-no-pollers.py, pre-commit hook, mkpr.sh invocation, and specs-rules-gates CI aligned with this SDD. Gate text cites milton-spec #32 / this focus_agent contract."
+  visibility=public
+  DEPENDS_ON SA-001 "check-no-pollers.py"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "check-no-pollers.py"
+  owner=Milton-consumer
+  description="AST/pattern gate detecting sleep-in-loop, while-not-event.wait, threading.Timer/sched/schedule, shell sleep/watch -n/crontab, Rust/JS sleep or interval, systemd timer units, and any new timers.* key not present in the base tree (so deleted keys cannot be revived)."
+  system_name=scripts/check-no-pollers.py
+  action="Fail closed on match; print rule #32 text. Clock-driven behavior requires Gregory to change this SDD and the gate in the same PR."
+  failure_modes="(1) Novel poll idiom escapes the pattern set — extend the gate, do not waive. (2) Author claims temporary revival during migration — reject; finish the event consumer instead."
+END

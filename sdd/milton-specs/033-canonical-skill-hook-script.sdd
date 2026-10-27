@@ -1,0 +1,58 @@
+SDD-TEXT 0.1
+
+# Milton-spec #33: HAND-ROLLING FORBIDDEN — use the canonical skill / hook / script
+
+# Source: gwild/milton milton-specs.md hard rule 33 (Gregory, 2026-08-29).
+# Absolute form of #22 for fleet workflows. Home: gwild/focus_agent; Milton consumes.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Task matches an existing skill, hook, or script"
+  description="Gregory names a tool (/post-pr, /make, /nudge, /deploy-agent, /clean-house, …) or the task clearly matches scripts/mkpr.sh, restart-stack*, chat-read.py, merge-guard, or a .claude/hooks/* entry."
+  actor=Agent / engineer
+  intent="Execute the sanctioned path so gates and side effects run"
+  success_criteria="Canonical tool identified before any parallel implementation is sketched"
+  PRECEDES J-002 "Invoke the canonical tool"
+END
+
+Step J-002 "Invoke the canonical tool"
+  description="Run the skill/hook/script as published. Do not reconstruct its steps by hand (e.g. mkpr + bespoke watcher instead of /post-pr; per-host SSH restart instead of restart-stack; raw psql/websocket instead of broker/chat-read.py)."
+  actor=Agent / engineer
+  intent="Preserve reviewed guarantees baked into the canonical tool"
+  success_criteria="Tool invoked; its gates and side effects execute"
+  PRECEDES J-003 "If tool is broken, fix the tool"
+END
+
+Step J-003 "If tool is broken, fix the tool"
+  description="When the canonical tool fails, open a PR that fixes THAT tool. Never route around it with a one-off hand-roll just this once."
+  actor=Agent / engineer
+  intent="Repair SSOT instead of forking behavior"
+  success_criteria="Fix lands on the canonical tool; no parallel path merged"
+  PRECEDES J-004 "Reviewer rejects hand-rolls"
+END
+
+Step J-004 "Reviewer rejects hand-rolls"
+  description="Reviewers MUST reject PRs or agent behavior that reimplement an existing skill/hook/script. Cite this contract and milton-spec #33."
+  actor=Reviewer
+  intent="Stop silent gate-skipping and workflow drift"
+  success_criteria="CHANGES_REQUESTED or behavior corrected to invoke the canonical tool"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Canonical workflow inventory"
+  owner=Milton-consumer
+  description="Skills under agent skill catalogs, .claude/hooks/*, and scripts/* named above remain the SSOT for fleet workflows. New workflows become a skill/hook/script first — not a one-off."
+  visibility=public
+  DEPENDS_ON SA-001 "Skill and hook tree"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Skill and hook tree"
+  owner=Milton-consumer
+  description="Keep /post-pr, /make, /nudge, /deploy-agent, /clean-house and related scripts/hooks discoverable. Hand-rolling is a regression against #22 made absolute."
+  system_name=skills+hooks+scripts
+  action="Prefer extend/fix existing tool; minting a parallel path requires Gregory express permission (see #22)."
+  failure_modes="(1) Agent claims urgency — still fix or invoke the tool. (2) Tool missing for a repeated task — add the skill/hook/script in its own PR, then use it."
+END
