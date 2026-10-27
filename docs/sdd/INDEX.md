@@ -1,10 +1,10 @@
 # Milton-specs → SDD-Text index
 
-Canonical home for the generalized policy pattern: **this repo (`focus_agent`)**, not Milton.
-Milton is a **consumer** of these contracts (gates, hooks, runtime).
+Canonical home: **gwild/focus_agent** `docs/sdd/` (not Milton).
+Shape: Milton `docs/sdd/template.sdd` (SDD-TEXT 0.1).
+Milton is a **consumer** of these contracts.
 
-Source of titles: `gwild/milton` `milton-specs.md` hard-rule list (rules 1–39).
-Format: [SDD-Text 0.1](https://github.com/knutopia/Structured-Design-Documents).
+Source titles: `gwild/milton` `milton-specs.md` hard rules 1–39.
 
 | # | Title (short) | SDD path | Status | Primary enforcement (Milton consumer) |
 |---|---|---|---|---|
@@ -29,7 +29,7 @@ Format: [SDD-Text 0.1](https://github.com/knutopia/Structured-Design-Documents).
 | 19 | NO silent, unbounded self-relaunch. A supervisor that keeps respawning a failing runtim… | — (stub) | todo | — |
 | 20 | This is a DEV fleet, not live production — a self-healing transitional window is NOT a … | — (stub) | todo | — |
 | 21 | A merge that needs post-merge followup MUST carry a reviewed Deployment plan — never im… | — (stub) | todo | — |
-| 22 | Reuse the existing method — a new function id requires Gregory's EXPRESS permission and… | [`sdd/milton-specs/022-stable-id-reuse-existing.sdd`](milton-specs/022-stable-id-reuse-existing.sdd) | **drafted** (Mike cluster) | review + id system (`ldb_ops` / Op ids); #33 absolute form |
+| 22 | Reuse the existing method — a new function id requires Gregory's EXPRESS permission and… | [`docs/sdd/022-stable-id-reuse-existing.sdd`](022-stable-id-reuse-existing.sdd) | **drafted** (Mike) | review + stable-id (`ldb_ops`); #33 absolute for skills/hooks/scripts |
 | 23 | Terminal commands posted for Gregory to paste MUST be short-line form — long one-liners… | — (stub) | todo | — |
 | 24 | Providers and their model catalogs are DB-ONLY — never fuckyou.fuckyou (Gregory, 2026-0… | — (stub) | todo | — |
 | 25 | Naming: `fleet_config` is SOT — never "override" (Gregory, 2026-08-27). | — (stub) | todo | — |
@@ -39,8 +39,8 @@ Format: [SDD-Text 0.1](https://github.com/knutopia/Structured-Design-Documents).
 | 29 | No agent chat tokens (Gregory, 2026-08-27). | — (stub) | todo | — |
 | 30 | Agent `.env` is PG pass only (Gregory, 2026-08-27; clarifies #5). | — (stub) | todo | — |
 | 31 | Shared OAuth across live seats is a KNOWN REGRESSION TRAP — single refresher + read-onl… | — (stub) | todo | — |
-| 32 | NO POLLERS — event-driven only; and NEVER revive a mechanism under active replacement (… | [`sdd/milton-specs/032-no-pollers-event-driven.sdd`](milton-specs/032-no-pollers-event-driven.sdd) | **drafted** (Mike cluster) | `scripts/check-no-pollers.py` + mkpr + `specs-rules-gates` CI |
-| 33 | HAND-ROLLING IS FORBIDDEN — use the canonical skill / hook / script, ALWAYS (Gregory, 2… | [`sdd/milton-specs/033-canonical-skill-hook-script.sdd`](milton-specs/033-canonical-skill-hook-script.sdd) | **drafted** (Mike cluster) | reviewer reject of hand-rolls; skills/hooks/scripts SSOT |
+| 32 | NO POLLERS — event-driven only; and NEVER revive a mechanism under active replacement (… | [`docs/sdd/032-no-pollers-event-driven.sdd`](032-no-pollers-event-driven.sdd) | **drafted** (Mike) | `scripts/check-no-pollers.py` + mkpr + `specs-rules-gates` CI |
+| 33 | HAND-ROLLING IS FORBIDDEN — use the canonical skill / hook / script, ALWAYS (Gregory, 2… | [`docs/sdd/033-canonical-skill-hook-script.sdd`](033-canonical-skill-hook-script.sdd) | **drafted** (Mike) | reviewer reject of hand-rolls; skills/hooks/scripts SSOT |
 | 34 | LOCAL QWEN / LOCAL GGUF IS NOT SITED THROUGH CODEX — EVER (Gregory, 2026-08-31; reinfor… | — (stub) | todo | — |
 | 35 | Bootstrap file (`fuckyou.fuckyou` / `CONFIG_FILE`) is LAST RESORT when investigating ag… | — (stub) | todo | — |
 | 36 | Bootstrap file (`fuckyou.fuckyou` / `CONFIG_FILE`) — ONE read-only loader, ONE read at … | — (stub) | todo | — |
@@ -48,13 +48,8 @@ Format: [SDD-Text 0.1](https://github.com/knutopia/Structured-Design-Documents).
 | 38 | Every work completion needs JEV and Attractor receipts (Gregory, 2026-10-06; issue #4409). | — (stub) | todo | — |
 | 39 | Fleet agents do not create draft pull requests (Gregory, 2026-10-06). | — (stub) | todo | — |
 
-## Cluster ownership (v1)
+## Cluster
 
-- **#22 / #32 / #33** — Mike draft; Rebecca reviews “what counts as a rule”; Elliot integrator.
-- Remaining rows — fill as Phase 1 continues (CI-gated rules first per pipeline plan).
-
-## Adoption note
-
-A rule that is only prose in Milton and has no SDD here is **aspirational** until translated.
-focus_agent principle: if it is not enforced by the compiler or CI, it is not a rule.
+- **#22 / #32 / #33** — Mike draft (template.sdd shape); Rebecca reviews rule language; Elliot integrator.
+- Remaining rows — fill as Phase 1 continues (CI-gated first).
 

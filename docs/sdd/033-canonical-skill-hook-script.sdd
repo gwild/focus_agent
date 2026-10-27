@@ -1,0 +1,68 @@
+SDD-TEXT 0.1
+
+# Milton-spec #33: HAND-ROLLING FORBIDDEN — use the canonical skill / hook / script
+# Fields: hosts, agents, services, files, trigger, expected recovery, scenario flow
+# Source: gwild/milton milton-specs.md hard rule 33 (Gregory, 2026-08-29)
+# Absolute form of #22 for fleet workflows. Home: gwild/focus_agent; Milton consumes.
+# Link: docs/sdd/033-canonical-skill-hook-script.sdd
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="Task matches an existing skill (/post-pr, /make, /nudge, /deploy-agent, /clean-house, …), hook (.claude/hooks/*), or script (mkpr.sh, restart-stack*, chat-read.py, merge-guard, …) — especially when Gregory names the tool."
+  actor=Agent / engineer
+  intent="Execute the sanctioned path so gates and side effects run"
+  success_criteria="Canonical tool identified before any parallel implementation is sketched"
+  PRECEDES J-002 "Failure"
+END
+
+Step J-002 "Failure"
+  description="Hand-roll reconstructs the tool's steps (mkpr + bespoke watcher instead of /post-pr; per-host SSH restart instead of restart-stack; raw psql/websocket instead of broker/chat-read.py), silently skipping baked-in gates."
+  actor=Agent / PR
+  intent="Catch route-around before merge or before operator time is wasted"
+  success_criteria="Reviewer or self-check cites #33; hand-roll does not proceed as the path of record"
+  PRECEDES J-003 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Recovery"
+  description="Invoke the canonical tool. If it is broken, fix THAT tool in its own PR — never route around it just this once."
+  actor=Agent / engineer
+  intent="Repair SSOT instead of forking behavior"
+  success_criteria="Canonical tool invoked or fixed; no parallel one-off merged"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes (affected services / scripts) ───────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=Milton-consumer
+  description="Author checklist + reviewer MUST reject hand-rolled reimplementations of existing skills/hooks/scripts."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Read State"
+END
+
+Process PR-002 "Recovery Action"
+  owner=Milton-consumer
+  description="Switch to the skill/hook/script, or land a fix PR on the canonical tool then retry."
+  visibility=backstage
+  DEPENDS_ON SA-002 "Write State"
+END
+
+# ── System actions (affected files / APIs) ────────────────────────────────────
+
+SystemAction SA-001 "Read State"
+  owner=Milton-consumer
+  description="Discover whether a skill, hook, or script already encodes the workflow."
+  system_name=skills + .claude/hooks + scripts/
+  action="Search catalogs and scripts; treat Gregory-named tools as mandatory"
+  failure_modes="Tool exists but author claims urgency — still invoke or fix. Ambiguous match — prefer existing tool over new one-off."
+END
+
+SystemAction SA-002 "Write State"
+  owner=Milton-consumer
+  description="Extend or fix the canonical tool; do not mint a parallel path."
+  system_name=canonical skill/hook/script under change
+  action="PR against the tool itself; then invoke it for the original task"
+  failure_modes="One-off script lands beside the tool — reject as #33/#22 regression."
+END

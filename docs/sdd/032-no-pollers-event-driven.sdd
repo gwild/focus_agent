@@ -1,0 +1,68 @@
+SDD-TEXT 0.1
+
+# Milton-spec #32: NO POLLERS — event-driven only (never revive a mechanism under replacement)
+# Fields: hosts, agents, services, files, trigger, expected recovery, scenario flow
+# Source: gwild/milton milton-specs.md hard rule 32 (Gregory, 2026-08-28; gate earned 2026-10-25)
+# Home: gwild/focus_agent (generalized). Milton is consumer via check-no-pollers + CI.
+# Link: docs/sdd/032-no-pollers-event-driven.sdd
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="Author needs change-detection / coordination (merge, chat, receipt, fleet flag) and reaches for sleep, poll, timer, cron, or a timed re-list instead of an existing event bus."
+  actor=PR author
+  intent="Ship coordination without burning shared-fleet CPU on poll loops"
+  success_criteria="Design names PG LISTEN/NOTIFY, GitHub webhook, or another existing bus — or the approach is rejected"
+  PRECEDES J-002 "Failure"
+END
+
+Step J-002 "Failure"
+  description="A while-True sleep loop, timer re-lister, crontab/watch, systemd .timer / On*Sec=, threading.Timer/sched/schedule, Rust/JS interval, or a new/revived timers.* catalog key lands — or a poller under active replacement is restarted 'temporarily'."
+  actor=PR / runtime
+  intent="Surface the violation before merge or before revival ships"
+  success_criteria="Clear gate or review failure citing milton-spec #32; no silent accept"
+  PRECEDES J-003 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Recovery"
+  description="Replace the clock wait with an event consumer, or finish the in-flight replacement. Never revive the deprecated poller. If a clock is truly required, Gregory changes this rule and the gate in the same PR."
+  actor=PR author / reviewer
+  intent="Event-driven coordination only; migration never rolls backward"
+  success_criteria="No poller pattern remains; check-no-pollers exits 0; replacement advanced or manual authorized path used"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes (affected services / scripts) ───────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=Milton-consumer
+  description="scripts/check-no-pollers.py on pre-commit --staged, mkpr.sh, and specs-rules-gates CI. Zero exceptions (no exemption marker, no PR-body waiver, no warning tier)."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Read State"
+END
+
+Process PR-002 "Recovery Action"
+  owner=Milton-consumer
+  description="Author rewrites to NOTIFY/webhook (or other existing bus); reviewer rejects revival during migration; gate stays fail-closed."
+  visibility=backstage
+  DEPENDS_ON SA-002 "Write State"
+END
+
+# ── System actions (affected files / APIs) ────────────────────────────────────
+
+SystemAction SA-001 "Read State"
+  owner=Milton-consumer
+  description="Gate scans staged/tree for poller and timer patterns, including revival of deleted timers.* keys."
+  system_name=scripts/check-no-pollers.py
+  action="Parse and match forbidden clock-wait / re-list / timer catalog shapes; exit non-zero with rule #32 text"
+  failure_modes="Novel poll idiom escapes patterns — extend the gate, never waive. Mid-migration 'temporary' restart of old poller — reject as regression."
+END
+
+SystemAction SA-002 "Write State"
+  owner=Milton-consumer
+  description="Land event consumer / finish replacement; do not re-enable deprecated poller units or timers.* keys."
+  system_name=broker NOTIFY + github_webhook + consumer code
+  action="Wire LISTEN/NOTIFY or webhook path; remove sleep/poll loops; keep timers.* catalog from growing without Gregory+gate co-change"
+  failure_modes="Replacement unfinished and author revives poller — blocked. Gate and SDD diverge — update both in one PR."
+END
