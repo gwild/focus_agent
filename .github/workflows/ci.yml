@@ -7,30 +7,15 @@ on:
 
 jobs:
   build:
-    # Local pipeline on beehave (same labels as milton self-hosted runner).
-    # Requires a runner registered for gwild/focus_agent (or org-level) —
-    # current beehave agent is repo-scoped to gwild/milton only.
-    runs-on: [self-hosted, linux, beehave]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
 
-      - name: Ensure Rust toolchain
-        run: |
-          if ! command -v rustc >/dev/null 2>&1; then
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-            # shellcheck disable=SC1091
-            . "$HOME/.cargo/env"
-          fi
-          rustup show
-          rustc --version
-          cargo --version
-
-      - name: Ensure ripgrep
-        run: |
-          if ! command -v rg >/dev/null 2>&1; then
-            sudo apt-get update && sudo apt-get install -y ripgrep
-          fi
-          rg --version
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
 
       - name: Policy gate
         run: cargo run -p xtask -- check
