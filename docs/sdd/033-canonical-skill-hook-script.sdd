@@ -5,6 +5,20 @@ SDD-TEXT 0.1
 # Source: gwild/milton milton-specs.md hard rule 33 (Gregory, 2026-08-29)
 # Absolute form of #22 for fleet workflows. Home: gwild/focus_agent; Milton consumes.
 # Link: docs/sdd/033-canonical-skill-hook-script.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED.
+# Today Milton still governs via reviewer reject (review ≠ focus_agent rule until CI/xtask gate exists).
+# Ladder gap: SDD yes; fail-closed mechanical check in focus_agent/CI — not yet.
+
+# ── MUST / FORBIDDEN (normative) ─────────────────────────────────────────────
+# MUST: When a canonical skill, hook, or script exists for the task — ESPECIALLY when Gregory
+#       names one — the author SHALL INVOKE THAT TOOL. ALWAYS.
+# FORBIDDEN: Hand-rolling / reconstructing the tool's steps (mkpr + bespoke watcher instead of
+#            /post-pr; per-host SSH restart instead of restart-stack; raw psql/websocket instead
+#            of broker/chat-read.py). Hand-rolling is a REGRESSION.
+# MUST: If the canonical tool is broken, FIX THE TOOL in its own PR.
+# FORBIDDEN: Routing around a broken tool "just this once."
+# MUST: Reviewers REJECT hand-rolled reimplementations of an existing skill/hook/script.
 
 # ── Trigger scenario ─────────────────────────────────────────────────────────
 
@@ -17,16 +31,16 @@ Step J-001 "Trigger"
 END
 
 Step J-002 "Failure"
-  description="Hand-roll reconstructs the tool's steps (mkpr + bespoke watcher instead of /post-pr; per-host SSH restart instead of restart-stack; raw psql/websocket instead of broker/chat-read.py), silently skipping baked-in gates."
+  description="Hand-roll reconstructs the tool's steps, silently skipping baked-in gates."
   actor=Agent / PR
   intent="Catch route-around before merge or before operator time is wasted"
-  success_criteria="Reviewer or self-check cites #33; hand-roll does not proceed as the path of record"
+  success_criteria="Reviewer or self-check cites #33; hand-roll MUST NOT proceed as the path of record"
   PRECEDES J-003 "Recovery"
   REALIZED_BY PR-001 "Detection"
 END
 
 Step J-003 "Recovery"
-  description="Invoke the canonical tool. If it is broken, fix THAT tool in its own PR — never route around it just this once."
+  description="Invoke the canonical tool. If it is broken, fix THAT tool in its own PR — NEVER route around it."
   actor=Agent / engineer
   intent="Repair SSOT instead of forking behavior"
   success_criteria="Canonical tool invoked or fixed; no parallel one-off merged"
@@ -37,7 +51,7 @@ END
 
 Process PR-001 "Detection"
   owner=Milton-consumer
-  description="Author checklist + reviewer MUST reject hand-rolled reimplementations of existing skills/hooks/scripts."
+  description="Author checklist + reviewer MUST reject hand-rolled reimplementations. focus_agent CI/xtask gate for this rule is DEFERRED (tracking: focus_agent#1 / this PR slice)."
   visibility=backstage
   DEPENDS_ON SA-001 "Read State"
 END
@@ -55,14 +69,14 @@ SystemAction SA-001 "Read State"
   owner=Milton-consumer
   description="Discover whether a skill, hook, or script already encodes the workflow."
   system_name=skills + .claude/hooks + scripts/
-  action="Search catalogs and scripts; treat Gregory-named tools as mandatory"
-  failure_modes="Tool exists but author claims urgency — still invoke or fix. Ambiguous match — prefer existing tool over new one-off."
+  action="MUST search catalogs and scripts first; Gregory-named tools MUST be invoked; hand-rolling is FORBIDDEN"
+  failure_modes="Tool exists but author claims urgency — MUST still invoke or fix. Ambiguous match — MUST use the existing tool; FORBIDDEN to mint a one-off."
 END
 
 SystemAction SA-002 "Write State"
   owner=Milton-consumer
-  description="Extend or fix the canonical tool; do not mint a parallel path."
+  description="Extend or fix the canonical tool; MUST NOT mint a parallel path."
   system_name=canonical skill/hook/script under change
   action="PR against the tool itself; then invoke it for the original task"
-  failure_modes="One-off script lands beside the tool — reject as #33/#22 regression."
+  failure_modes="One-off script lands beside the tool — FORBIDDEN (#33/#22 regression)."
 END

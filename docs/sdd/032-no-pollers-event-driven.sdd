@@ -5,6 +5,20 @@ SDD-TEXT 0.1
 # Source: gwild/milton milton-specs.md hard rule 32 (Gregory, 2026-08-28; gate earned 2026-10-25)
 # Home: gwild/focus_agent (generalized). Milton is consumer via check-no-pollers + CI.
 # Link: docs/sdd/032-no-pollers-event-driven.sdd
+#
+# focus_agent rule status: RULE (fail-closed executable check exists in Milton consumer).
+# Ladder: SDD (this file) + scripts/check-no-pollers.py + mkpr + specs-rules-gates CI.
+
+# ── MUST / FORBIDDEN (normative) ─────────────────────────────────────────────
+# MUST: New coordination SHALL be event-driven off an existing bus
+#       (PostgreSQL LISTEN/NOTIFY — broker command_notify / chat NOTIFY — or GitHub App webhooks).
+# FORBIDDEN: while-True sleep/poll loops; timer re-listers; crontab/watch -n; systemd .timer / On*Sec=;
+#            threading.Timer / sched / schedule; Rust/JS sleep or interval for change detection;
+#            ANY new timers.* catalog path; revival of a deleted timers.* key.
+# FORBIDDEN: Restarting, re-enabling, or "temporarily" reviving a poller/mechanism under active
+#            replacement (merged-or-open PR removing it). That revival is a REGRESSION.
+# MUST: Zero exceptions on the gate — no exemption marker, no PR-body waiver, no warning tier.
+# MUST: If a clock is genuinely required, Gregory changes this SDD and the gate in the SAME PR.
 
 # ── Trigger scenario ─────────────────────────────────────────────────────────
 
@@ -17,19 +31,19 @@ Step J-001 "Trigger"
 END
 
 Step J-002 "Failure"
-  description="A while-True sleep loop, timer re-lister, crontab/watch, systemd .timer / On*Sec=, threading.Timer/sched/schedule, Rust/JS interval, or a new/revived timers.* catalog key lands — or a poller under active replacement is restarted 'temporarily'."
+  description="A forbidden clock-wait / poll / timer catalog pattern lands, or a poller under active replacement is restarted."
   actor=PR / runtime
   intent="Surface the violation before merge or before revival ships"
-  success_criteria="Clear gate or review failure citing milton-spec #32; no silent accept"
+  success_criteria="Gate or review fails closed citing milton-spec #32; no silent accept"
   PRECEDES J-003 "Recovery"
   REALIZED_BY PR-001 "Detection"
 END
 
 Step J-003 "Recovery"
-  description="Replace the clock wait with an event consumer, or finish the in-flight replacement. Never revive the deprecated poller. If a clock is truly required, Gregory changes this rule and the gate in the same PR."
+  description="Replace the clock wait with an event consumer, or finish the in-flight replacement. NEVER revive the deprecated poller."
   actor=PR author / reviewer
   intent="Event-driven coordination only; migration never rolls backward"
-  success_criteria="No poller pattern remains; check-no-pollers exits 0; replacement advanced or manual authorized path used"
+  success_criteria="No poller pattern remains; check-no-pollers exits 0; replacement advanced or Gregory-authorized manual path used"
   REALIZED_BY PR-002 "Recovery Action"
 END
 
@@ -37,14 +51,14 @@ END
 
 Process PR-001 "Detection"
   owner=Milton-consumer
-  description="scripts/check-no-pollers.py on pre-commit --staged, mkpr.sh, and specs-rules-gates CI. Zero exceptions (no exemption marker, no PR-body waiver, no warning tier)."
+  description="scripts/check-no-pollers.py on pre-commit --staged, mkpr.sh, and specs-rules-gates CI. Fail-closed."
   visibility=backstage
   DEPENDS_ON SA-001 "Read State"
 END
 
 Process PR-002 "Recovery Action"
   owner=Milton-consumer
-  description="Author rewrites to NOTIFY/webhook (or other existing bus); reviewer rejects revival during migration; gate stays fail-closed."
+  description="Author rewrites to NOTIFY/webhook; reviewer REJECTS revival during migration; gate stays fail-closed."
   visibility=backstage
   DEPENDS_ON SA-002 "Write State"
 END
@@ -55,14 +69,14 @@ SystemAction SA-001 "Read State"
   owner=Milton-consumer
   description="Gate scans staged/tree for poller and timer patterns, including revival of deleted timers.* keys."
   system_name=scripts/check-no-pollers.py
-  action="Parse and match forbidden clock-wait / re-list / timer catalog shapes; exit non-zero with rule #32 text"
-  failure_modes="Novel poll idiom escapes patterns — extend the gate, never waive. Mid-migration 'temporary' restart of old poller — reject as regression."
+  action="MUST match forbidden clock-wait / re-list / timer catalog shapes; MUST exit non-zero with rule #32 text"
+  failure_modes="Novel poll idiom escapes patterns — MUST extend the gate, NEVER waive. Mid-migration temporary restart of old poller — MUST reject as regression."
 END
 
 SystemAction SA-002 "Write State"
   owner=Milton-consumer
-  description="Land event consumer / finish replacement; do not re-enable deprecated poller units or timers.* keys."
+  description="Land event consumer / finish replacement; MUST NOT re-enable deprecated poller units or timers.* keys."
   system_name=broker NOTIFY + github_webhook + consumer code
-  action="Wire LISTEN/NOTIFY or webhook path; remove sleep/poll loops; keep timers.* catalog from growing without Gregory+gate co-change"
-  failure_modes="Replacement unfinished and author revives poller — blocked. Gate and SDD diverge — update both in one PR."
+  action="Wire LISTEN/NOTIFY or webhook path; remove sleep/poll loops; timers.* MUST NOT grow without Gregory+gate co-change"
+  failure_modes="Replacement unfinished and author revives poller — FORBIDDEN. Gate and SDD diverge — MUST update both in one PR."
 END

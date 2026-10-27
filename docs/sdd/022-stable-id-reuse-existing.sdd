@@ -5,6 +5,23 @@ SDD-TEXT 0.1
 # Source: gwild/milton milton-specs.md hard rule 22 (Gregory, 2026-08-16)
 # #33 makes this absolute for skills/hooks/scripts. Home: gwild/focus_agent.
 # Link: docs/sdd/022-stable-id-reuse-existing.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED.
+# Today Milton still governs via reviewer reject + ldb_ops discipline (review ≠ focus_agent rule
+# until a CI/xtask gate exists that fails closed on parallel paths / unapproved id mints).
+# Ladder gap: SDD yes; fail-closed mechanical check in focus_agent/CI — not yet.
+
+# ── MUST / FORBIDDEN (normative) ─────────────────────────────────────────────
+# MUST: Before implementing ANY method/function/route/op/NOTIFY-channel/GUI-object, CHECK for an
+#       existing one that already does it (grep, specs, team).
+# FORBIDDEN: Building a parallel path when a method already exists (REGRESSION).
+# MUST: Registering ANY new function id (Op member, NOTIFY channel, route/endpoint, GUI object id,
+#       service/unit name) requires Gregory's EXPRESS permission FIRST.
+# MUST: New functions SHALL be routed through the stable-id system: code references the stable id;
+#       human-facing label is rendered ONLY where the operator (HIL) sees it; a rename moves the
+#       label/value, NEVER the id (ldb_ops op-id/label contract).
+# FORBIDDEN: Minting an id because it is convenient.
+# MUST: Reviewers REJECT unapproved ids and duplicate implementations.
 
 # ── Trigger scenario ─────────────────────────────────────────────────────────
 
@@ -17,7 +34,7 @@ Step J-001 "Trigger"
 END
 
 Step J-002 "Failure"
-  description="Parallel path is built when a method already exists (e.g. hand-rolled per-host SSH restart beside restart-stack), or a new function id is minted without Gregory's express permission / outside the stable-id system."
+  description="Parallel path is built when a method already exists, or a new function id is minted without Gregory's EXPRESS permission / outside the stable-id system."
   actor=PR
   intent="Fail review before duplicate paths or convenience ids merge"
   success_criteria="CHANGES_REQUESTED citing #22, or author switches to existing method / obtains approval"
@@ -26,7 +43,7 @@ Step J-002 "Failure"
 END
 
 Step J-003 "Recovery"
-  description="Extend the existing method. If a new id is truly required: Gregory express permission first, then mint through the stable-id system (code uses stable id; HIL sees label only; rename moves label, never id — ldb_ops op-id/label contract)."
+  description="Extend the existing method. If a new id is truly required: Gregory EXPRESS permission first, then mint through the stable-id system."
   actor=PR author
   intent="SSOT methods; stable machine identity"
   success_criteria="No parallel path; new ids approved and id-system routed"
@@ -37,7 +54,7 @@ END
 
 Process PR-001 "Detection"
   owner=Milton-consumer
-  description="Author grep/specs check + reviewer reject of unapproved ids and duplicate implementations."
+  description="Author grep/specs check + reviewer MUST reject unapproved ids and duplicates. focus_agent CI/xtask gate DEFERRED (tracking: focus_agent#1 / this PR slice)."
   visibility=backstage
   DEPENDS_ON SA-001 "Read State"
 END
@@ -55,14 +72,14 @@ SystemAction SA-001 "Read State"
   owner=Milton-consumer
   description="Find existing ops, routes, NOTIFY channels, restart/deploy/chat helpers before writing new ones."
   system_name=codebase + milton-specs + scripts/ldb_ops.py
-  action="Search for equivalent method; list candidate stable ids"
-  failure_modes="while-Im-here second implementation — treat as regression. Label used as key — force stable id."
+  action="MUST search for equivalent method before any new implementation; MUST list candidate stable ids"
+  failure_modes="while-Im-here second implementation — FORBIDDEN (regression). Label used as key — MUST force stable id."
 END
 
 SystemAction SA-002 "Write State"
   owner=Milton-consumer
   description="Extend existing method or register approved id through stable-id system."
   system_name=scripts/ldb_ops.py + target module
-  action="Code references stable id; HIL label only at operator surface; no unapproved Op/NOTIFY/route/GUI/service id"
-  failure_modes="Id minted for convenience without Gregory — blocked. Rename changes id instead of label — blocked."
+  action="Code MUST reference stable id; HIL label only at operator surface; unapproved Op/NOTIFY/route/GUI/service id is FORBIDDEN"
+  failure_modes="Id minted without Gregory EXPRESS permission — FORBIDDEN. Rename changes id instead of label — FORBIDDEN."
 END
