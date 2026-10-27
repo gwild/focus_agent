@@ -1,0 +1,104 @@
+SDD-TEXT 0.1
+
+# focus_agent policy SDD: Agents vs services are never conflated; service-identity is a DB role; no daemon named secretary
+# Source (verbatim severity preserved): milton-specs.md #11, #12, #13, #14
+# Owner of this text: gwild/focus_agent. Milton (gwild/milton) is a CONSUMER only;
+#   Milton paths below name the consumer gate that enforces this contract today.
+# Intent fields use fail-loud / reject / stop semantics (never degrade, never continue silently).
+# Ladder L1: this file.
+# Ladder L2 (Milton consumer today): Milton consumer `scripts/check-specs-literal-bans.py` (#14: new alias-named file or systemd unit). #11-#13 have no mechanical gate: L2 DEFERRED to focus_agent#1 (owner Elliot).
+# Ladder L4: services refuse to run under a phantom identity; only a real agent id resolves.
+# Link: docs/sdd/011-012-013-014-identity-classes.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED (owner Elliot, focus_agent#1).
+# The Milton gates named under Ladder L2 are consumer gates. Review is not a focus_agent RULE until a
+# fail-closed CI/xtask gate exists in the focus_agent ladder. The contract itself is not deferred.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="A change names a daemon, assigns a role, or runs services under an identity."
+  actor=Author
+  intent="Keep identity classes distinct and DB-defined"
+  success_criteria="Every runtime identity is a real agent id; roles are DB writes"
+  PRECEDES J-002 "Failure: Classes conflated"
+END
+
+Step J-002 "Failure: Classes conflated"
+  description="[#11] Two identity classes, NEVER conflated: an AGENT is a fleet worker with its own per-agent DB pass deployed by the provisioner; a SERVICE is an automated daemon that does no agent work as its own identity and is not an agent name."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Reviewer rejects a service acting as an agent or an agent named for a daemon"
+  PRECEDES J-003 "Failure: Role as daemon"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Failure: Role as daemon"
+  description="[#12] `service-identity` is a DB role on a real agent profile, not an infrastructure daemon and not a separate agent. Assigning it is a DB role write."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Role assignment happens only in the DB"
+  PRECEDES J-004 "Failure: Phantom identity"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-004 "Failure: Phantom identity"
+  description="[#13] The fleet daemons run under a REAL agent (`services`) that holds `service-identity`, so broker and `fleet_config` resolution works normally; phantom identities and env-load fallbacks are FORBIDDEN."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Daemons resolve through the real agent's broker"
+  PRECEDES J-005 "Failure: Alias used as name"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-005 "Failure: Alias used as name"
+  description="[#14] NO service, daemon, script, or unit may be named `secretary`; the word is a chat address alias for the role only."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Gate blocks alias-named files and units"
+  PRECEDES J-006 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-006 "Recovery"
+  description="Rename to the canonical daemon or agent name; move role assignment to the DB."
+  actor=Author
+  intent="Clean alias-vs-daemon naming and real identities"
+  success_criteria="Gate green; review confirms no conflated identity"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=focus_agent
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Literal-ban gate"
+  DEPENDS_ON SA-002 "Identity review"
+END
+
+Process PR-002 "Recovery Action"
+  owner=focus_agent
+  description="Correct the root cause in the single source of truth; the failure stays visible until the correction lands."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Literal-ban gate"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Literal-ban gate"
+  owner=focus_agent
+  description="Literal-ban gate"
+  system_name=milton:scripts/check-specs-literal-bans.py
+  action="Block alias-named files and unit references"
+  failure_modes="Tests and docs only are excluded by the consumer gate."
+END
+
+SystemAction SA-002 "Identity review"
+  owner=focus_agent
+  description="Identity review"
+  system_name=review + focus_agent#1
+  action="Reviewer MUST reject conflated identities and role-as-daemon changes"
+  failure_modes="Deferred wiring only."
+END

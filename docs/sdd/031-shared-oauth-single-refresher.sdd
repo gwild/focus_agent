@@ -1,0 +1,86 @@
+SDD-TEXT 0.1
+
+# focus_agent policy SDD: Shared OAuth across live seats: single refresher and read-only consumers, or do not ship
+# Source (verbatim severity preserved): milton-specs.md #31
+# Owner of this text: gwild/focus_agent. Milton (gwild/milton) is a CONSUMER only;
+#   Milton paths below name the consumer gate that enforces this contract today.
+# Intent fields use fail-loud / reject / stop semantics (never degrade, never continue silently).
+# Ladder L1: this file.
+# Ladder L2 (Milton consumer today): no mechanical gate in source; the reviewer MUST reject every violation: L2 DEFERRED to focus_agent#1 (owner Elliot).
+# Ladder L4: consumers never run the refresh grant.
+# Link: docs/sdd/031-shared-oauth-single-refresher.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED (owner Elliot, focus_agent#1).
+# The Milton gates named under Ladder L2 are consumer gates. Review is not a focus_agent RULE until a
+# fail-closed CI/xtask gate exists in the focus_agent ladder. The contract itself is not deferred.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="A change wires OAuth credentials for a seat or consumer."
+  actor=Author
+  intent="Keep each seat on its own credential per the decided architecture"
+  success_criteria="No shared credential across live seats"
+  PRECEDES J-002 "Failure: Rotation race"
+END
+
+Step J-002 "Failure: Rotation race"
+  description="[#31] Exactly ONE refresher owns rotation; no other process runs the refresh grant. Consumers are READ-ONLY. If a live seat auto-refreshes and that cannot be suppressed, sharing across N live seats is structurally unstable and MUST NOT ship."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Reviewer rejects a second refresher or a refreshing consumer"
+  PRECEDES J-003 "Failure: Wrong secret var or clobber"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Failure: Wrong secret var or clobber"
+  description="[#31] The shared secret var is DEDICATED, never the provider API key var. Consumers write only when local is absent or the DB copy is strictly newer; clobbering a fresher local file is FORBIDDEN."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Reviewer rejects key-var reuse and clobbering writes"
+  PRECEDES J-004 "Failure: Rebuilt machinery or shared storage"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-004 "Failure: Rebuilt machinery or shared storage"
+  description="[#31 decided architecture] Decided: per-agent auto-oauth by the existing login automation into each seat's own credentials path; no DB publish of the OAuth blob. Rebuilding the login, refresh, or trigger paths, or adding a DB-shared OAuth path, is FORBIDDEN (#22)."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Reviewer rejects reinvention and shared storage"
+  PRECEDES J-005 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-005 "Recovery"
+  description="Revert to per-seat credentials using the existing automation."
+  actor=Author
+  intent="No shared rotating token"
+  success_criteria="Each seat authenticates independently"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=focus_agent
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  visibility=backstage
+  DEPENDS_ON SA-001 "OAuth review"
+END
+
+Process PR-002 "Recovery Action"
+  owner=focus_agent
+  description="Correct the root cause in the single source of truth; the failure stays visible until the correction lands."
+  visibility=backstage
+  DEPENDS_ON SA-001 "OAuth review"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "OAuth review"
+  owner=focus_agent
+  description="OAuth review"
+  system_name=review + focus_agent#1
+  action="Reject any change violating the invariants"
+  failure_modes="Deferred wiring only."
+END

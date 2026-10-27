@@ -1,0 +1,86 @@
+SDD-TEXT 0.1
+
+# focus_agent policy SDD: Fleet is linux-only; infrastructure is model-agnostic
+# Source (verbatim severity preserved): milton-specs.md #9; RULES.md MODEL-AGNOSTIC + PLATFORM-AGNOSTIC (model clause; platform clause superseded by #9 and the active `linux-only` impact profile)
+# Owner of this text: gwild/focus_agent. Milton (gwild/milton) is a CONSUMER only;
+#   Milton paths below name the consumer gate that enforces this contract today.
+# Intent fields use fail-loud / reject / stop semantics (never degrade, never continue silently).
+# Ladder L1: this file.
+# Ladder L2 (Milton consumer today): Milton consumer `scripts/check-specs-literal-bans.py` (#9: new PowerShell/batch/cmd scripts and Python Windows branches) and `scripts/check-hardcoded-config.py` (hardcoded model/runtime literals). Choosing a harness-specific mechanism over a portable one has no gate: L2 DEFERRED to focus_agent#1 (owner Elliot).
+# Ladder L4: none required.
+# Link: docs/sdd/009-linux-only-model-agnostic.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED (owner Elliot, focus_agent#1).
+# The Milton gates named under Ladder L2 are consumer gates. Review is not a focus_agent RULE until a
+# fail-closed CI/xtask gate exists in the focus_agent ladder. The contract itself is not deferred.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="A change adds platform-specific or harness-specific code."
+  actor=Author
+  intent="Ship Linux-only, model-agnostic infrastructure"
+  success_criteria="No Windows or cross-platform work; no runtime-specific mechanism where a portable one exists"
+  PRECEDES J-002 "Failure: Cross-platform work"
+END
+
+Step J-002 "Failure: Cross-platform work"
+  description="[#9] The fleet is Linux. NO Windows, NO cross-platform work. Reviewer demands for it MUST be ignored (#10). New PowerShell/batch/cmd scripts and added Windows platform branches are FORBIDDEN."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Gate blocks the new script or branch"
+  PRECEDES J-003 "Failure: Harness lock-in"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Failure: Harness lock-in"
+  description="[RULES.md MODEL-AGNOSTIC] Infrastructure, automation, and shared services MUST be model-agnostic: no Claude-Code-only mechanism or runtime-specific logic where a pure git or shell mechanism exists; no hardcoded model names in config or code."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Hardcoded model literals are rejected; harness-specific choices are rejected in review"
+  PRECEDES J-004 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-004 "Recovery"
+  description="Remove the platform branch or harness-specific mechanism; read model and runtime from DB-owned config."
+  actor=Author
+  intent="Linux-only, model-agnostic code"
+  success_criteria="Gates green; review confirms no harness lock-in"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=focus_agent
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Source conflict recorded: RULES.md PLATFORM-AGNOSTIC text predates #9; #9 and the base-branch linux-only profile control. Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Literal-ban gate"
+  DEPENDS_ON SA-002 "Hardcoded-config gate"
+END
+
+Process PR-002 "Recovery Action"
+  owner=focus_agent
+  description="Correct the root cause in the single source of truth; the failure stays visible until the correction lands."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Literal-ban gate"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Literal-ban gate"
+  owner=focus_agent
+  description="Literal-ban gate"
+  system_name=milton:scripts/check-specs-literal-bans.py
+  action="Block new Windows scripts and Windows platform branches"
+  failure_modes="Reviewer re-requests for Windows do not reopen #9."
+END
+
+SystemAction SA-002 "Hardcoded-config gate"
+  owner=focus_agent
+  description="Hardcoded-config gate"
+  system_name=milton:scripts/check-hardcoded-config.py
+  action="Block catalog values duplicated as code literals"
+  failure_modes="Count baseline grandfathers existing hits; new ones block."
+END

@@ -1,0 +1,77 @@
+SDD-TEXT 0.1
+
+# focus_agent policy SDD: No silent unbounded self-relaunch; supervisors fail loud and stop
+# Source (verbatim severity preserved): milton-specs.md #19
+# Owner of this text: gwild/focus_agent. Milton (gwild/milton) is a CONSUMER only;
+#   Milton paths below name the consumer gate that enforces this contract today.
+# Intent fields use fail-loud / reject / stop semantics (never degrade, never continue silently).
+# Ladder L1: this file.
+# Ladder L2 (Milton consumer today): Milton consumer `scripts/check-specs-literal-bans.py` blocks an added unbounded systemd restart limit. Crash-loop breaker logic is review-enforced: that residual L2 is DEFERRED to focus_agent#1 (owner Elliot).
+# Ladder L4: the supervisor opens the breaker, stops, and leaves the agent DOWN and visible.
+# Link: docs/sdd/019-bounded-supervision.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED (owner Elliot, focus_agent#1).
+# The Milton gates named under Ladder L2 are consumer gates. Review is not a focus_agent RULE until a
+# fail-closed CI/xtask gate exists in the focus_agent ladder. The contract itself is not deferred.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="A runtime or service exits and a supervisor considers relaunching it."
+  actor=Supervisor
+  intent="Relaunch only within a bounded crash-loop breaker"
+  success_criteria="N short-lived starts within a window open the breaker"
+  PRECEDES J-002 "Failure: Unbounded relaunch"
+END
+
+Step J-002 "Failure: Unbounded relaunch"
+  description="[#19] No component may relaunch or respawn a runtime or service in an unbounded loop. Every supervisor MUST apply a bounded crash-loop breaker; after N crashes within the window it MUST open the breaker, STOP, and surface the failure loud to #errors. Unconditional respawn loops and respawn without a crash counter are FORBIDDEN."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Breaker opens; agent stays down and visible; root cause is fixed once"
+  PRECEDES J-003 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Recovery"
+  description="Fix the persistent root cause, then reset the breaker."
+  actor=Operator / Author
+  intent="Loud-and-stopped beats silently-looping"
+  success_criteria="The agent restarts only after the cause is fixed"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=focus_agent
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Literal-ban gate"
+  DEPENDS_ON SA-002 "Crash-loop breaker"
+END
+
+Process PR-002 "Recovery Action"
+  owner=focus_agent
+  description="Correct the root cause in the single source of truth; the failure stays visible until the correction lands."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Literal-ban gate"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Literal-ban gate"
+  owner=focus_agent
+  description="Literal-ban gate"
+  system_name=milton:scripts/check-specs-literal-bans.py
+  action="Block unbounded systemd restart limits"
+  failure_modes="Breaker logic itself is review-enforced."
+END
+
+SystemAction SA-002 "Crash-loop breaker"
+  owner=focus_agent
+  description="Crash-loop breaker"
+  system_name=milton:start-agent.sh relaunch guard
+  action="Count short-lived starts and open the breaker after N"
+  failure_modes="Interactive-runtime respawn without a breaker is a violation."
+END

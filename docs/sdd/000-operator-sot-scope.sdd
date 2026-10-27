@@ -1,0 +1,113 @@
+SDD-TEXT 0.1
+
+# focus_agent policy SDD: Operator is SOT; reviewers are not SOT; literal scope only
+# Source (verbatim severity preserved): milton-specs.md lead (`Gregory is SOT`), #10, `Before this action, check` items 1-20, `Hard rules`; RULES.md SCOPE & DISCLAIMERS
+# Owner of this text: gwild/focus_agent. Milton (gwild/milton) is a CONSUMER only;
+#   Milton paths below name the consumer gate that enforces this contract today.
+# Intent fields use fail-loud / reject / stop semantics (never degrade, never continue silently).
+# Ladder L1: this file (contract text, unsoftened).
+# Ladder L2 (Milton consumer today): Milton consumer `.claude/hooks/read-milton-specs.py` delivers the contract before tool use (fail closed, #17). Scope adjudication itself has no mechanical gate: L2 DEFERRED to focus_agent#1 (owner Elliot).
+# Ladder L4: runtime consumers refuse to act on scope set by a bot reviewer instead of the operator.
+# Link: docs/sdd/000-operator-sot-scope.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED (owner Elliot, focus_agent#1).
+# The Milton gates named under Ladder L2 are consumer gates. Review is not a focus_agent RULE until a
+# fail-closed CI/xtask gate exists in the focus_agent ladder. The contract itself is not deferred.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="An agent receives an instruction, a review comment, or a re-request and is about to act."
+  actor=Agent
+  intent="Act on exactly what the operator (Gregory) literally asked, at exactly that scope"
+  success_criteria="The action matches the literal instruction; nothing adjacent is added"
+  PRECEDES J-002 "Failure: Operator not SOT"
+END
+
+Step J-002 "Failure: Operator not SOT"
+  description="[milton-specs lead] Gregory is the single source of truth for scope. An agent MUST do exactly what he says at exactly the scope he says. Nothing adjacent. Exploring, redesigning, or enumerating instead of doing the one simple thing is drift and is FORBIDDEN."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Drift is stopped before execution; the agent does the smallest literal reading and reports"
+  PRECEDES J-003 "Failure: Reviewers set scope"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Failure: Reviewers set scope"
+  description="[milton-specs #10] Bot reviewers are NOT SOT. Items the operator rejected (broker transport redesign, agent tokens, entitlement lifecycle, Windows, seed) stay rejected; reviewer re-requests MUST NOT reopen them."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Reviewer demands outside operator scope are declined with a citation of #10"
+  PRECEDES J-004 "Failure: Pre-action checklist skipped"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-004 "Failure: Pre-action checklist skipped"
+  description="[milton-specs Before this action, check 1-20] Before every action the agent MUST run the 20-item check: literal ask; no drift; no added scope; no stalling question unless the move is irreversible and uninferable; reviewers not SOT; reuse before minting ids (#22); paste-safe shell (#23); providers/catalogs DB-only (#24); no live state from bootstrap (#26); no channel assignments or secret values in bootstrap (#27/#28); no agent chat tokens (#29); agent .env is two keys (#30); no override vocabulary (#25); no shared OAuth wiring (#31); no pollers or revived mechanisms (#32); no hand-rolling (#33); no local model through a CLI tunnel (#34); bootstrap last (#35); one bootstrap loader (#36); no new content-yaml (#37). Any yes answer is STOP."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Every yes on the checklist halts the action before it runs"
+  PRECEDES J-005 "Failure: Hard rules diluted"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-005 "Failure: Hard rules diluted"
+  description="[milton-specs Hard rules] Simple over clever, every time. `do it` from the operator means the literal thing, not a project. No plan-mode architecture unless explicitly asked. If unsure of scope: smallest literal reading, then report; never expand."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="No unrequested architecture; uncertain scope resolves to the smallest literal reading"
+  PRECEDES J-006 "Failure: Rule text treated as enforcement"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-006 "Failure: Rule text treated as enforcement"
+  description="[RULES.md SCOPE & DISCLAIMERS] Rule prose is NOT a substitute for mechanical enforcement: where a mechanism exists it is the floor; where none exists the prose binds agents anyway and the gap MUST be filed as an issue to close the mechanical layer. Enforcement layers bind agent shells; the operator terminal is out of scope by design. Rules apply forward (fix-on-discovery), not as retro-audit."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Each enforcement gap surfaces as a tracked issue, never as silent permission"
+  PRECEDES J-007 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-007 "Recovery"
+  description="Return to the literal instruction; decline reviewer-originated scope citing #10; report blockers instead of expanding."
+  actor=Agent
+  intent="Restore operator-only scope and stop drift loudly"
+  success_criteria="Work product matches the literal ask; reviewer scope requests are recorded and declined"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=focus_agent
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Contract delivery hook"
+  DEPENDS_ON SA-002 "Scope adjudication"
+END
+
+Process PR-002 "Recovery Action"
+  owner=focus_agent
+  description="Correct the root cause in the single source of truth; the failure stays visible until the correction lands."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Contract delivery hook"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Contract delivery hook"
+  owner=focus_agent
+  description="Contract delivery hook"
+  system_name=milton:.claude/hooks/read-milton-specs.py
+  action="Deliver this contract before tool use on every harness; block on missing or unreadable spec (exit 2)"
+  failure_modes="Delivery ledger written without showing the body is a false pass and is FORBIDDEN (#17)."
+END
+
+SystemAction SA-002 "Scope adjudication"
+  owner=focus_agent
+  description="Scope adjudication"
+  system_name=review + focus_agent#1
+  action="Reviewer MUST reject out-of-scope work; generalized mechanical scope gate is deferred wiring"
+  failure_modes="Treating a bot review as authority is a violation of #10."
+END

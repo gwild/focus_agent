@@ -1,0 +1,78 @@
+SDD-TEXT 0.1
+
+# focus_agent policy SDD: Every work completion needs JEV and Attractor receipts
+# Source (verbatim severity preserved): milton-specs.md #38
+# Owner of this text: gwild/focus_agent. Milton (gwild/milton) is a CONSUMER only;
+#   Milton paths below name the consumer gate that enforces this contract today.
+# Intent fields use fail-loud / reject / stop semantics (never degrade, never continue silently).
+# Ladder L1: this file.
+# Ladder L2 (Milton consumer today): Milton consumer `.claude/hooks/block-completion-without-receipt.py` gates outward completion claims via the broker receipt verifier. Per #38's own text, it MUST NOT be described as enforced until a tested denial path exists on each harness.
+# Ladder L3: Attractor receipt is mandatory here (content-addressed, resolvable).
+# Ladder L4: completion transitions are refused without both receipts.
+# Link: docs/sdd/038-completion-receipts.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED (owner Elliot, focus_agent#1).
+# The Milton gates named under Ladder L2 are consumer gates. Review is not a focus_agent RULE until a
+# fail-closed CI/xtask gate exists in the focus_agent ladder. The contract itself is not deferred.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="An agent is about to claim work done, verified, migrated, or ready to close."
+  actor=Agent
+  intent="Record both receipts against the same work state before claiming completion"
+  success_criteria="JEV and Attractor receipts share one state digest on the canonical tracker row"
+  PRECEDES J-002 "Failure: Claim without receipts"
+END
+
+Step J-002 "Failure: Claim without receipts"
+  description="[#38] A completion statement is a claim, not evidence. JEV via the broker typed op with full question, state digest, model/version, raw score, and threshold; an uncertain score is UNDECIDED and an unavailable JEV is a failed verification, never a guessed pass. Attractor receipt MUST bind source hashes and provenance and be resolvable; unavailable Attractor means the work stays open."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Missing, stale, mismatched, or unreachable receipt blocks completion and reports the exact missing proof"
+  PRECEDES J-003 "Failure: Shape-only check"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Failure: Shape-only check"
+  description="[#38] Checking for receipt-shaped words is insufficient; receipts MUST be validated against their authoritative sources. One canonical implementation with thin runtime adapters (#17)."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Verifier resolves both receipts"
+  PRECEDES J-004 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-004 "Recovery"
+  description="Obtain both receipts on the tracker row, then claim completion."
+  actor=Agent
+  intent="Evidence-backed completion only"
+  success_criteria="Completion allowed only with verified receipts"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=focus_agent
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Milton consumer hook enforces today; Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Completion receipt hook"
+END
+
+Process PR-002 "Recovery Action"
+  owner=focus_agent
+  description="Correct the root cause in the single source of truth; the failure stays visible until the correction lands."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Completion receipt hook"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Completion receipt hook"
+  owner=focus_agent
+  description="Completion receipt hook"
+  system_name=milton:.claude/hooks/block-completion-without-receipt.py
+  action="Gate outward completion claims"
+  failure_modes="Untested denial path means not enforced."
+END

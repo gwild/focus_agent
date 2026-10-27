@@ -1,0 +1,86 @@
+SDD-TEXT 0.1
+
+# focus_agent policy SDD: Config-as-baseline readers are deleted; providers and model catalogs are DB-only
+# Source (verbatim severity preserved): milton-specs.md #18, #24
+# Owner of this text: gwild/focus_agent. Milton (gwild/milton) is a CONSUMER only;
+#   Milton paths below name the consumer gate that enforces this contract today.
+# Intent fields use fail-loud / reject / stop semantics (never degrade, never continue silently).
+# Ladder L1: this file.
+# Ladder L2 (Milton consumer today): Milton consumer `scripts/check-specs-literal-bans.py` (#18 condemned readers) and `scripts/check-config-static-only.py` (#24 providers registry and catalogs in bootstrap). Fail closed, zero exceptions.
+# Ladder L4: an empty catalog is reported as a provisioning gap; menus are never filled from config.
+# Link: docs/sdd/018-024-db-only-readers-and-catalogs.sdd
+#
+# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED (owner Elliot, focus_agent#1).
+# The Milton gates named under Ladder L2 are consumer gates. Review is not a focus_agent RULE until a
+# fail-closed CI/xtask gate exists in the focus_agent ladder. The contract itself is not deferred.
+
+# ── Trigger scenario ─────────────────────────────────────────────────────────
+
+Step J-001 "Trigger"
+  description="A reader needs roster, channels, voice, seats, providers, or model catalogs."
+  actor=Consumer
+  intent="Read only from DB via broker"
+  success_criteria="No yaml reader is consulted for live state"
+  PRECEDES J-002 "Failure: Baseline reader survives"
+END
+
+Step J-002 "Failure: Baseline reader survives"
+  description="[#18] Config-SOT-era readers that treat bootstrap as authoritative are the current breakage and MUST be deleted; adding a reference to a condemned reader is FORBIDDEN. Pre-existing ones are open deletion work, never a pass."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Gate blocks added references"
+  PRECEDES J-003 "Failure: Catalog from config"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-003 "Failure: Catalog from config"
+  description="[#24] The provider registry and every model catalog live in the DB only (`model_catalog`, `host_model_probe`, `fleet_config`, DB secrets). A live `providers:` tree, menus derived from bootstrap, treating a config model list as proof a seat works, and config-to-catalog seeding are FORBIDDEN."
+  actor=Offending change, process, or agent
+  intent="Reject the change or stop the process loudly; no fallback, no exemption marker, no silent continue"
+  success_criteria="Gate rejects providers and catalogs in bootstrap"
+  PRECEDES J-004 "Recovery"
+  REALIZED_BY PR-001 "Detection"
+END
+
+Step J-004 "Recovery"
+  description="Delete the reader; add or use a broker typed op; provision missing catalog rows in the DB."
+  actor=Author
+  intent="Finish the purge at the SOT"
+  success_criteria="Gates green; no yaml-derived live state"
+  REALIZED_BY PR-002 "Recovery Action"
+END
+
+# ── Processes ────────────────────────────────────────────────────────────────
+
+Process PR-001 "Detection"
+  owner=focus_agent
+  description="Mechanical gate or hook refuses the violating change or launch; the reviewer MUST reject anything the gate does not cover. Milton consumer gates enforce today; Generalized focus_agent enforcer binding: DEFERRED to gwild/focus_agent#1 (owner Elliot); only the wiring is deferred, never this contract."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Literal-ban gate"
+  DEPENDS_ON SA-002 "Static-only config gate"
+END
+
+Process PR-002 "Recovery Action"
+  owner=focus_agent
+  description="Correct the root cause in the single source of truth; the failure stays visible until the correction lands."
+  visibility=backstage
+  DEPENDS_ON SA-001 "Literal-ban gate"
+END
+
+# ── System actions ───────────────────────────────────────────────────────────
+
+SystemAction SA-001 "Literal-ban gate"
+  owner=focus_agent
+  description="Literal-ban gate"
+  system_name=milton:scripts/check-specs-literal-bans.py
+  action="Block added references to condemned readers"
+  failure_modes="Pre-existing references are not a pass."
+END
+
+SystemAction SA-002 "Static-only config gate"
+  owner=focus_agent
+  description="Static-only config gate"
+  system_name=milton:scripts/check-config-static-only.py
+  action="Reject providers registry and catalogs in bootstrap"
+  failure_modes="Empty DB is never fixed by a config seed (#3)."
+END
