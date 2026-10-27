@@ -139,6 +139,10 @@ fn scan_pattern(pattern: &str, allowlist: &[String]) -> Result<Vec<(String, Stri
         .args([
             "-n",
             "--hidden",
+            // Policy applies to Rust sources only; docs/notes mention these
+            // identifiers descriptively and must not trip the gate.
+            "--type",
+            "rust",
             "--glob",
             "!target/**",
             "--glob",

@@ -9,7 +9,7 @@ This crate provides mechanical enforcement of architectural invariants.
 ## Usage
 
 ```bash
-cargo run -p xtask
+cargo run -p xtask -- check
 ```
 
 Reads configuration from `policy.toml` in this directory.

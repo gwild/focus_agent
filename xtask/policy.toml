@@ -1,5 +1,8 @@
 # Policy configuration for cargo xtask
 # This file allows customization of enforcement rules for different repo structures
+#
+# Scope: rules scan Rust sources only (ripgrep `--type rust`, excluding target/).
+# Markdown, docs/, and design notes are intentionally out of scope.
 
 [allowlists]
 # Paths where locks are allowed (relative to repo root)

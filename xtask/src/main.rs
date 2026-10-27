@@ -171,6 +171,10 @@ fn run_rg_policy(
             .args([
                 "-n",
                 "--hidden",
+                // Policy applies to Rust sources only; docs/notes mention these
+                // identifiers descriptively and must not trip the gate.
+                "--type",
+                "rust",
                 "--glob",
                 "!target/**",
                 "--glob",

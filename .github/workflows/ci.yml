@@ -3,7 +3,7 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [master]
 
 jobs:
   build:
@@ -18,7 +18,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y ripgrep
 
       - name: Policy gate
-        run: cargo run -p xtask
+        run: cargo run -p xtask -- check
 
       - name: Format
         run: cargo fmt --check
@@ -32,4 +32,3 @@ jobs:
       - name: Cargo deny
         run: cargo deny check
         continue-on-error: true
-
