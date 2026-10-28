@@ -7,9 +7,17 @@ SDD-TEXT 0.1
 # Author: Ivy (Red Team / InfoSec) — draft 0.1.1, 2026-10-26
 # Link: docs/sdd/005-env-holds-only-db-pass.sdd
 #
-# focus_agent rule status: SDD drafted; focus_agent executable enforcer DEFERRED.
-# A hygiene gate is REQUIRED for RULE status; optional hygiene is not enough.
-# Ladder gap: SDD yes; focus_agent fail-closed env-allowlist gate — not yet (tracking focus_agent#1).
+# focus_agent rule status: **RULE** (SDD + fail-closed named Milton consumer gate).
+# Ladder L2 Milton consumer for #5 (with #30's exact key set):
+#   `scripts/check-env-hygiene.sh --check-allowlist` — agent seat .env holds EXACTLY the two
+#   config-owned DB-pass keys (database.principal_env + database.password_env; today PG_USER +
+#   PG_PASSWORD), each once, both present, never world-accessible; fail-closed, no override,
+#   no warning tier; values never printed. Landed in gwild/milton#4760 (merge 13ec943d).
+#   Wired: .githooks/pre-commit + scripts/mkpr.sh (`--check-allowlist`, the PR path);
+#   scripts/start-agent.sh seat gate (`--check` = stale .env* backups + broker overlap + allowlist);
+#   specs-rules-gates CI runs the fixture tests (seat .env is untracked).
+# Generalized focus_agent-native CI/xtask binding remains on focus_agent#1 (Ivy co-owns security slice);
+# this promotion does not wait on that wiring — same pattern as #28 / #32 / focus_agent#4.
 
 # ── MUST / FORBIDDEN (normative) ─────────────────────────────────────────────
 # MUST: Agent .env holds ONLY the DB pass (exact keys under #30).
@@ -55,7 +63,7 @@ Step J-004 "Invariant holds"
   description="Seats at rest keep .env as DB-pass only. A missing secret is a DB provisioning gap, never a file fallback."
   actor=System
   intent="Minimize local secret blast radius"
-  success_criteria="Hygiene check green when enforcer lands; docs never instruct adding other keys"
+  success_criteria="Named Milton consumer gate `scripts/check-env-hygiene.sh --check-allowlist` green (fail-closed); .env holds only the DB pass; docs never instruct adding other keys"
 END
 
 # ── Processes ────────────────────────────────────────────────────────────────
@@ -69,9 +77,10 @@ END
 
 Process PR-002 "Env hygiene enforcement"
   owner=Milton-consumer
-  description="Fail-closed allowlist check. focus_agent CI/xtask gate DEFERRED (focus_agent#1). Until then Milton consumer gate + reviewer REJECT are required — not optional."
+  description="Fail-closed allowlist check. Milton consumer `scripts/check-env-hygiene.sh --check-allowlist` (pre-commit / mkpr / start-agent seat gate; specs-rules-gates fixtures; landed gwild/milton#4760) is the focus_agent RULE ladder for #5/#30; reviewer REJECT remains required in addition, never instead. Generalized focus_agent-native CI/xtask binding remains tracked on gwild/focus_agent#1."
   visibility=public
-  DEPENDS_ON SA-002 "Secret fetch path"
+  DEPENDS_ON SA-002 "Env allowlist gate"
+  DEPENDS_ON SA-003 "Secret fetch path"
 END
 
 # ── System actions ───────────────────────────────────────────────────────────
@@ -84,7 +93,15 @@ SystemAction SA-001 "Agent .env file"
   failure_modes="(1) Extra keys for the bridge — FORBIDDEN (CHANGES). (2) .env.bak* in repo — FORBIDDEN. (3) Docs teaching agent chat-token env in .env — MUST fix docs in same program of work."
 END
 
-SystemAction SA-002 "Secret fetch path"
+SystemAction SA-002 "Env allowlist gate"
+  owner=Milton-consumer
+  description="#5/#30 RULE ladder L2: mechanical check that the agent seat .env holds exactly the two config-owned DB-pass keys (database.principal_env + database.password_env; today PG_USER + PG_PASSWORD) and is not world-accessible."
+  system_name=milton:scripts/check-env-hygiene.sh --check-allowlist
+  action="MUST fail closed (pre-commit / mkpr / start-agent `--check`); reject any other key, a missing or duplicated key, a non-assignment line, or world-accessible mode; MUST never print a value"
+  failure_modes="(1) Warning-only, marker, or env-var skip — FORBIDDEN (CHANGES). (2) Key names inlined in the gate instead of read from config — FORBIDDEN. (3) Bootstrap config unreadable so allowed names unknown — MUST fail closed, never pass. (4) Pre-existing extra keys are open deletion work (capture to DB, DELETE line), never a pass."
+END
+
+SystemAction SA-003 "Secret fetch path"
   owner=Milton-consumer
   description="Broker typed ops for secret material (JIT into memory; no argv/log leakage)."
   system_name=broker-get-secret
