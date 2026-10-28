@@ -190,5 +190,5 @@ SystemAction SA-005 "Hardcode gates"
   description="Hardcode gates"
   system_name=milton:scripts/check-hardcoded-config.py + scripts/audit/check-hardcodes.py
   action="Reject config-owned literals in code"
-  failure_modes="New hardcode classes extend the mechanical layer, never a prose reminder."
+  failure_modes="Count baseline is a non-expanding debt ratchet only (count MUST NOT rise) — never a pass. Touched-file fix-on-discovery sweep is enforced by SA-004 (pre-commit full-content scan), not by the baseline. New hardcode classes extend the mechanical layer, never a prose reminder."
 END
