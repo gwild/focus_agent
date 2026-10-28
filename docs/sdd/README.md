@@ -6,6 +6,8 @@ Generalized design→code policy contracts live **here** (`docs/sdd/`), not in M
 - A focus_agent **rule** = SDD + fail-closed executable check; otherwise it is aspirational here. Only enforcer wiring is ever deferred, never contract text.
 - [template.sdd](template.sdd): authoring template. Failure-path intents MUST be fail-loud / reject / stop. Soft-landing intents that continue past a failure are forbidden.
 
+Where these contracts sit in the overall design→code enforcement stack (SDD → executable check → attractor → runtime consumers): [ARCHITECTURE.md](../../ARCHITECTURE.md).
+
 See [focus_agent#1](https://github.com/gwild/focus_agent/issues/1) and [PR #2](https://github.com/gwild/focus_agent/pull/2).
 
 - Mike: #22 / #32 / #33.
