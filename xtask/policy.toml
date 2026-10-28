@@ -31,6 +31,11 @@ ssot_allowed = [
     "tests/",
 ]
 
+# milton-spec #32 NO POLLERS (event-driven only): paths where Rust
+# sleep/interval waits are allowed. Intentionally EMPTY — SDD 032 permits
+# zero exceptions (docs/sdd/032-no-pollers-event-driven.sdd). Required key.
+poller_allowed = []
+
 [patterns]
 # Patterns to detect locks (regex)
 lock_patterns = [
@@ -50,6 +55,15 @@ spawn_patterns = [
     "tokio::task::spawn",
 ]
 
+# milton-spec #32 NO POLLERS: Rust sleep/interval waits (mirrors milton
+# scripts/check-no-pollers.py RUST_WAIT_RE, plus a `use` import trap so a
+# bare `sleep(...)` after `use std::thread::sleep;` cannot slip through).
+# The first pattern skips matches after a `//` line comment. Required key.
+poller_patterns = [
+    '^(?:[^/]|/[^/])*?\b(?:thread|time)::(?:sleep|sleep_until|interval|interval_at)\s*\(',
+    '^\s*(?:pub\s+)?use\s+(?:std|tokio|async_std|futures_timer)::[^;]*\b(?:sleep|sleep_until|interval|interval_at)\b',
+]
+
 # SSOT state type names to check (will be matched as word boundaries)
 ssot_types = [
     "MachineState",
@@ -57,6 +71,7 @@ ssot_types = [
 ]
 
 [options]
-# Whether to fail if ripgrep is not found (false = warn but continue)
-require_ripgrep = false
+# Whether to fail if ripgrep is not found (false = warn but continue).
+# true: a policy gate that cannot run must fail closed (SDD 032; RULES fail-loud).
+require_ripgrep = true
 
