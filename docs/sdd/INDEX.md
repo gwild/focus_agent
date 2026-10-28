@@ -134,8 +134,8 @@ Deferral covers the **focus_agent enforcer wiring only** (owner Elliot, tracking
 
 ## Open points for counsel (Rebecca)
 
-1. SILENT-FAILURE Tier 3 bypass: explicit `bypass_*` / override with its own justification + operator (Gregory) authorization; annotation never a bypass (aligned to RULES.md).
-2. Silent-fallback / hardcoded-config count baselines are non-expanding debt ratchets only — never a pass; touched-file sweep credited to pre-commit SA-004.
+1. RESOLVED — Rebecca counsel 2026-10-27: SILENT-FAILURE Tier 3 bypass is settled by [`rules-fail-loud-silent-failure.sdd`](rules-fail-loud-silent-failure.sdd) **J-006** — only an explicit named `bypass_*` flag / override mechanism with its own justification + operator (Gregory) authorization; its use MUST be user-visible; an annotation is never a bypass; agents MUST NOT invent bypass flags. Aligned to RULES.md and **J-008** (no annotation escape).
+2. RESOLVED — Rebecca counsel 2026-10-27: silent-fallback / hardcoded-config count baselines are non-expanding debt ratchets only (count MUST NOT rise) — never a pass; touched-file fix-on-discovery sweep is **SA-004** (pre-commit full-content scan). Already in **SA-001** `failure_modes`; the same ratchet one-liner is now mirrored onto **SA-005** (hardcode gates) so silent-fallback and hardcode baselines match.
 3. RESOLVED — Gregory 2026-10-27: #9 retires PLATFORM-AGNOSTIC; MODEL-AGNOSTIC remains. No further counsel action needed for this item unless language softens.
 4. RULE rows today (Milton consumer gates, fail-closed): **#32** (check-no-pollers + mkpr + specs-rules-gates), **#1/#3/#15/#25** DB-SOT cluster (`check-config-static-only.py` + `check-specs-literal-bans.py` + config-static-only / pre-commit), and **#28** secrets-never-in-yaml (`check-specs-literal-bans.py`; Ivy security slice). Every other gated row stays enforcer-deferred until its own focus_agent CI/xtask or named consumer gate lands ([focus_agent#1](https://github.com/gwild/focus_agent/issues/1), owner Elliot).
 
