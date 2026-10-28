@@ -1,8 +1,22 @@
-# cargo deny configuration
-# Bans unwanted dependencies and enforces license policy
+# cargo deny configuration (cargo-deny >= 0.16 schema, version = 2)
+# Bans unwanted dependencies and enforces license policy.
+
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+# Vulnerability and unsound advisories are always errors in v2.
+# Unmaintained: error for any crate in the graph.
+unmaintained = "all"
+yanked = "deny"
+# Ignore specific advisories if needed, with a reason:
+# ignore = [{ id = "RUSTSEC-YYYY-XXXX", reason = "..." }]
+ignore = []
 
 [licenses]
-# Allow permissive licenses
+version = 2
+# Permissive licenses only. Anything not listed (incl. GPL/AGPL/LGPL) is denied.
 allow = [
     "MIT",
     "Apache-2.0",
@@ -11,44 +25,19 @@ allow = [
     "ISC",
     "Unlicense",
     "Zlib",
+    # unicode-ident (via proc-macro2/syn): permissive, OSI-approved
+    "Unicode-3.0",
 ]
-
-# Deny copyleft licenses
-deny = [
-    "GPL-2.0",
-    "GPL-3.0",
-    "AGPL-1.0",
-    "AGPL-3.0",
-    "LGPL-2.0",
-    "LGPL-2.1",
-    "LGPL-3.0",
-]
+confidence-threshold = 0.8
+# Keep the allowlist ahead of the dep graph without noisy warnings.
+unused-allowed-license = "allow"
 
 [bans]
-# Ban specific crates if needed
-# For example, if standardizing on tokio locks, ban parking_lot:
-# deny = [
-#     { name = "parking_lot", reason = "Use tokio::sync::Mutex instead" },
-# ]
-
 # Allow multiple versions of same crate (useful during transitions)
 multiple-versions = "allow"
+# Ban specific crates if needed, e.g.:
+# deny = [{ name = "parking_lot", reason = "Use tokio::sync::Mutex instead" }]
 
-[advisories]
-# Check for security advisories
-vulnerability = "deny"
-unmaintained = "warn"
-unsound = "deny"
-yanked = "deny"
-
-[advisories.db-path]
-path = "~/.cargo/advisory-db"
-url = "https://github.com/rustsec/advisory-db"
-
-[advisories.db-git-commit]
-# Leave empty to use latest
-
-[advisories.ignore]
-# Ignore specific advisories if needed
-# id = ["RUSTSEC-YYYY-XXXX"]
-
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
