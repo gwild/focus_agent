@@ -8,6 +8,8 @@ A Rust workspace with mechanical enforcement of architectural invariants to prev
 
 ## Architecture
 
+The generalized design→code enforcement architecture (repo roles, enforcement ladder, adoption checklist, consumers) is in [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ### Workspace Structure
 
 - **`xtask/`** - Policy enforcement agent (runs `cargo xtask policy`)
