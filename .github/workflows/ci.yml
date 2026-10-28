@@ -29,6 +29,10 @@ jobs:
       - name: Test
         run: cargo test --all-features
 
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+
       - name: Cargo deny
         run: cargo deny check
-        continue-on-error: true
