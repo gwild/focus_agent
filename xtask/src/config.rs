@@ -12,6 +12,9 @@ pub struct Allowlists {
     pub lock_allowed: Vec<String>,
     pub spawn_allowed: Vec<String>,
     pub ssot_allowed: Vec<String>,
+    /// milton-spec #32 NO POLLERS allowlist. Required (no serde default):
+    /// a missing key must fail config load rather than silently disable the gate.
+    pub poller_allowed: Vec<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -19,6 +22,8 @@ pub struct Patterns {
     pub lock_patterns: Vec<String>,
     pub spawn_patterns: Vec<String>,
     pub ssot_types: Vec<String>,
+    /// milton-spec #32 NO POLLERS patterns. Required (no serde default).
+    pub poller_patterns: Vec<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]

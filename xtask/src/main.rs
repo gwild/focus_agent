@@ -105,6 +105,31 @@ fn run_check() {
         ));
     }
 
+    // 4) milton-spec #32 NO POLLERS (event-driven only)
+    let poller_patterns: Vec<&str> = config
+        .patterns
+        .poller_patterns
+        .iter()
+        .map(|s| s.as_str())
+        .collect();
+    if poller_patterns.is_empty() {
+        failures.push(
+            "milton-spec #32 NO POLLERS (event-driven only): poller_patterns is empty; gate would be a no-op"
+                .to_string(),
+        );
+    }
+    failures.extend(run_rg_policy(
+        "milton-spec #32 NO POLLERS (event-driven only)",
+        &poller_patterns,
+        &config
+            .allowlists
+            .poller_allowed
+            .iter()
+            .map(|s| s.as_str())
+            .collect::<Vec<_>>(),
+        config.options.require_ripgrep,
+    ));
+
     if failures.is_empty() {
         println!("policy: OK");
         return;
@@ -181,6 +206,7 @@ fn run_rg_policy(
                 "!**/*.lock",
                 "--glob",
                 "!**/Cargo.lock",
+                "-e",
                 pat,
                 ".",
             ])
@@ -196,8 +222,20 @@ fn run_rg_policy(
             continue;
         };
 
-        if !rg.status.success() && rg.stdout.is_empty() {
-            continue; // no matches
+        // ripgrep exit codes: 0 = matches, 1 = no matches, anything else
+        // (2 = error: bad regex, unreadable path, ...) = the gate did not run.
+        // Fail closed on the latter (SDD 032; RULES fail-loud).
+        match rg.status.code() {
+            Some(0) => {}
+            Some(1) => continue, // no matches
+            other => {
+                let stderr = String::from_utf8_lossy(&rg.stderr);
+                out.push(format!(
+                    "{rule_name}: ripgrep failed (exit {other:?}) for pattern {pat}: {}",
+                    stderr.trim()
+                ));
+                continue;
+            }
         }
 
         let stdout = String::from_utf8_lossy(&rg.stdout);
